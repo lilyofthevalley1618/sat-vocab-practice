@@ -11,10 +11,14 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const fmt = t => { const d = Math.round((t - Date.now()) / L.DAY); return d <= 0 ? 'now' : d === 1 ? 'tomorrow' : `in ${d} days`; };
 $('#home').onclick = e => { e.preventDefault(); home(); };
 
+// Tell long-open tabs when a newer version has been published.
+const VERSION = document.querySelector('meta[name=app-version]').content;
+let stale = false;
+fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
 function home() {
   const due = L.dueWords(prog, WORDS), learned = WORDS.filter(w => !L.isNew(prog, w)).length, weak = L.weakWords(prog, WORDS);
   const next = Object.values(prog).map(p => p.due).filter(d => d > Date.now()).sort((a, b) => a - b)[0];
-  app.innerHTML = `<section class="card"><div class="stats">
+  app.innerHTML = (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="stats">
    <div class="stat"><b>${due.length}</b>reviews due</div><div class="stat"><b>${learned}</b>of 384 started</div>
    <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
@@ -29,6 +33,7 @@ function home() {
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
      <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
    }).join('')}</div>`;
+  if ($('#upd')) $('#upd').onclick = () => location.reload();
   $('#rev').onclick = () => quiz(due.slice(0, 30), 'Due review');
   $('#weak').onclick = () => quiz(weak, 'Weak words');
   $('#data').onclick = backup;
@@ -40,7 +45,7 @@ function home() {
 
 function startStage(it, idx) {
   if (!L.isUnlocked(PATH, idx, gate)) return home();
-  const run = () => quiz(it.words, label(it), true, it.words, it);
+  const run = () => quiz(it.words, label(it), true, it.pool || it.words, it);
   if (it.type === 'unit') { const fresh = it.words.filter(w => L.isNew(prog, w));
     return fresh.length ? flash(fresh, `${label(it)}: meet the new words`, run, false) : run(); }
   run();
@@ -87,8 +92,9 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       if (stage) { if (keep) delete gate.resume[stage.id]; result = L.recordAttempt(gate, stage.id, s.total, s.missed.length); saveGate(); }
       return done(title, s.total, s.missed.map(k => BYKEY[k]), stage, result);
     }
-    const { k, retry } = s.queue[0], w = BYKEY[k], type = intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000];
-    const opts = L.choices(w, pool);
+    const { k, retry } = s.queue[0];
+    const q = stage ? L.buildQuestion(stage, k, s.qi, BYKEY) : { w: BYKEY[k], type: intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000], options: L.choices(BYKEY[k], pool) };
+    const w = q.w, type = q.type, opts = q.options;
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
       <form id="tf" class="row"><input type="text" id="ti" autocomplete="off" autocapitalize="off" aria-label="Your answer"><button>Check</button><button type="button" class="ghost" id="hint">Show first letter</button></form>`;

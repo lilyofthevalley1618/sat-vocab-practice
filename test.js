@@ -69,4 +69,25 @@ const rt = L.quizTypes(20, true); assert(rt.filter(x => x === 'word2def').length
 const bk = L.importData(L.exportData(P, G)); assert.deepStrictEqual(bk.gate.passed, G.passed); assert.deepStrictEqual(bk.gate.best, G.best);
 const G3 = L.newGate(); G3.resume.final = JSON.parse(JSON.stringify(L.newSession(['a', 'b']))); L.answerSession(G3.resume.final, false);
 const b3 = L.importData(L.exportData({}, G3)); assert.deepStrictEqual(b3.gate.resume.final, G3.resume.final);
+// Integration: real path stages + session -> rendered question options
+const BY = Object.fromEntries(W.map(w => [L.key(w), w]));
+const u2 = path.find(x => x.id === 'u1'), pair = new Set(U[0].concat(U[1]).map(L.key));
+assert.strictEqual(u2.pool.length, 20); assert.deepStrictEqual(new Set(u2.pool.map(L.key)), pair);
+assert.strictEqual(path.find(x => x.id === 'u0').pool.length, 20); assert.strictEqual(path.find(x => x.id === 'u38').pool.length, 4);
+for (const st of path) {
+  const poolK = new Set((st.pool || st.words).map(L.key));
+  const S2 = L.newSession(st.words.map(L.key));
+  for (let qi = 0; S2.queue.length && qi < 60; qi++) {
+    const q = L.buildQuestion(st, S2.queue[0].k, S2.qi, BY);
+    assert(q.options.every(o => poolK.has(L.key(o))), st.id); assert.strictEqual(q.options.filter(o => o === q.w).length, 1);
+    L.answerSession(S2, true);
+  }
+}
+for (let r = 0; r < 200; r++) for (const qi of [0, 1]) {
+  const q = L.buildQuestion(u2, 'adapt', qi, BY);
+  assert(!q.options.some(o => /^(speculate|invent|fabricate)$/i.test(o.w))); assert(q.options.every(o => pair.has(L.key(o))));
+}
+// a resumed (JSON) session still gets fresh pair-pool options
+const RS = JSON.parse(JSON.stringify(L.newSession(u2.words.map(L.key)))); assert(L.buildQuestion(u2, RS.queue[0].k, RS.qi, BY).options.every(o => pair.has(L.key(o))));
+const ex = [0, 1].map(qi => L.buildQuestion(u2, 'adapt', qi, BY)); console.log(ex.map(q => q.type + ': ' + q.options.map(o => q.type === 'word2def' ? o.w + '=' + o.d : o.w).join(' | ')).join('\n'));
 console.log('all tests passed');

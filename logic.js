@@ -63,7 +63,9 @@ function choices(word, all, n = 4, rnd = Math.random) {
 function makePath(units) {
   const path = [];
   units.forEach((u, i) => {
-    path.push({ type: 'unit', id: 'u' + i, i, words: u });
+    // Unit quizzes draw wrong answers from the unit pair (Units 1+2, 3+4, ...; Unit 39 alone).
+    const pool = units.slice(i - (i % 2), i - (i % 2) + 2).flat();
+    path.push({ type: 'unit', id: 'u' + i, i, words: u, pool });
     if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: i - 1, b: i, words: units[i - 1].concat(u) });
     if (i % 6 === 5) path.push({ type: 'big', id: 'b' + (i + 1) / 6, n: (i + 1) / 6, from: i - 5, to: i, words: units.slice(i - 5, i + 1).flat() });
   });
@@ -91,6 +93,11 @@ function answerSession(s, correct) {
   if (correct) s.done++; else s.queue.splice(Math.min(3, s.queue.length), 0, { k, retry: true });
   return s.queue.length === 0;
 }
+// One question for a path stage. Options are rebuilt on every render (never stored), so resumed sessions use current pools.
+function buildQuestion(stage, k, qi, byKey, rnd = Math.random) {
+  const w = byKey[k], type = ['word2def', 'def2word'][qi % 2];
+  return { w, type, options: choices(w, stage.pool || stage.words, 4, rnd) };
+}
 function quizTypes(n, intro, rnd = Math.random) {
   const off = Math.floor(rnd() * 2);
   return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
@@ -111,5 +118,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
