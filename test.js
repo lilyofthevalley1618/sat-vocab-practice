@@ -35,13 +35,18 @@ assert.strictEqual(revs.length, 19); assert.strictEqual(bigs.length, 6); assert.
 assert.strictEqual(path[path.length - 1].id, 'final'); assert.strictEqual(path[path.length - 2].id, 'u38');
 assert.strictEqual(path[path.length - 1].words.length, 384); assert.strictEqual(new Set(path[path.length - 1].words.map(L.key)).size, 384);
 revs.forEach((r, n) => {
-  assert.strictEqual(r.a, 2 * n); assert.strictEqual(r.b, 2 * n + 1);
-  const pi = path.indexOf(r); assert(path[pi - 1].i === r.b && path[pi - 2].i === r.a);
-  assert.strictEqual(r.words.length, 20); assert.strictEqual(new Set(r.words.map(L.key)).size, 20);
-  assert.deepStrictEqual(r.words, U[r.a].concat(U[r.b]));
+  assert.strictEqual(r.a, 0); assert.strictEqual(r.b, 2 * n + 1); assert.strictEqual(r.id, 'r' + (2 * n));
+  const pi = path.indexOf(r); assert(path[pi - 1].i === r.b && path[pi - 2].i === r.b - 1);
+  assert.strictEqual(r.words.length, Math.min(20 * (n + 1), 380)); assert.strictEqual(new Set(r.words.map(L.key)).size, r.words.length);
+  assert.deepStrictEqual(r.words, W.slice(0, r.words.length));
   const rk = new Set(r.words.map(L.key));
-  for (const w of r.words) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
+  for (const w of r.words.slice(0, 40)) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
 });
+assert.deepStrictEqual(revs.map(r => r.words.length), Array.from({ length: 19 }, (_, n) => 20 * (n + 1)));
+// stale/mismatched saved review sessions are not resumed; matching ones are
+const r2 = path.find(x => x.id === 'r2'); assert.strictEqual(r2.words.length, 40);
+assert(!L.validResume(L.newSession(U[2].concat(U[3]).map(L.key)), r2.words));
+const okS = L.newSession(r2.words.map(L.key)); L.answerSession(okS, true); assert(L.validResume(JSON.parse(JSON.stringify(okS)), r2.words));
 bigs.forEach((b, n) => {
   const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'r' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'u' + (6 * n + 5));
   assert.strictEqual(b.words.length, 60); assert.deepStrictEqual(b.words, W.slice(60 * n, 60 * n + 60));

@@ -66,7 +66,8 @@ function makePath(units) {
     // Unit quizzes draw wrong answers from the unit pair (Units 1+2, 3+4, ...; Unit 39 alone).
     const pool = units.slice(i - (i % 2), i - (i % 2) + 2).flat();
     path.push({ type: 'unit', id: 'u' + i, i, words: u, pool });
-    if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: i - 1, b: i, words: units[i - 1].concat(u) });
+    // Cumulative review: every word from Unit 1 through this unit (id kept as before so saved unlocks still match).
+    if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: 0, b: i, words: units.slice(0, i + 1).flat() });
     if (i % 6 === 5) path.push({ type: 'big', id: 'b' + (i + 1) / 6, n: (i + 1) / 6, from: i - 5, to: i, words: units.slice(i - 5, i + 1).flat() });
   });
   path.push({ type: 'final', id: 'final', words: units.flat() });
@@ -86,6 +87,11 @@ function recordAttempt(gate, id, total, firstTryMisses, now = Date.now()) {
 // Quiz session (serializable for pause/resume). First answer per word is what counts; misses retry later.
 function newSession(keys, rnd = Math.random) {
   return { queue: shuffle(keys, rnd).map(k => ({ k, retry: false })), total: keys.length, done: 0, qi: 0, missed: [], seen: [] };
+}
+// A saved session is only resumed if it still matches the stage's word list.
+function validResume(s, words) {
+  if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || s.total !== words.length) return false;
+  const ks = new Set(words.map(key)); return s.queue.every(q => ks.has(q.k)) && s.seen.every(k => ks.has(k));
 }
 function answerSession(s, correct) {
   const { k } = s.queue.shift(); s.qi++;
@@ -118,5 +124,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

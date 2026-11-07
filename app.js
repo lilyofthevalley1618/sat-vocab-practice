@@ -6,7 +6,7 @@ const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
 const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
-const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Review ${it.a + 1}–${it.b + 1}` : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
+const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Cumulative Review: Units 1–${it.b + 1}` : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = t => { const d = Math.round((t - Date.now()) / L.DAY); return d <= 0 ? 'now' : d === 1 ? 'tomorrow' : `in ${d} days`; };
 $('#home').onclick = e => { e.preventDefault(); home(); };
@@ -80,8 +80,8 @@ function flash(words, title, then, graded = true) {
 // stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   if (!words.length) return home();
-  const keep = stage && (stage.type === 'big' || stage.type === 'final');
-  let s = keep && gate.resume[stage.id];
+  const keep = stage && stage.type !== 'unit';
+  let s = keep && L.validResume(gate.resume[stage.id], words) ? gate.resume[stage.id] : null;
   if (!s) s = L.newSession(words.map(L.key));
   const rtypes = intro ? null : L.quizTypes(1000, false);
   const persist = () => { if (keep) { gate.resume[stage.id] = s; saveGate(); } };
