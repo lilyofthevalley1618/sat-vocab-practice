@@ -14,7 +14,6 @@ function home() {
    <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
-   <p class="muted">Reviews come back after 1, 3, 7, 14, then 30 days. A missed word starts over at 1 day and repeats again in the same session. Spacing makes forgetting much less likely, though nothing can guarantee it.</p></section>
    <h2>Units (up to 20 words each)</h2><div class="units">${UNITS.map((u, i) => {
      const st = u.filter(w => !L.isNew(prog, w)).length, d = L.dueWords(prog, u).length;
      return `<div class="unit"><h3>Unit ${i + 1}</h3><small>${esc(u[0].w)} – ${esc(u[u.length - 1].w)}</small>
@@ -106,7 +105,7 @@ function done(title, total, missed) {
 
 function backup() {
   app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Download a backup to keep it safe or move it to another device.</p>
-   <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage-d)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
+   <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
   $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog)], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
