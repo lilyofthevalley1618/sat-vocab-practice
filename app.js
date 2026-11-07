@@ -127,12 +127,12 @@ function done(title, total, m, stage, result) {
 }
 
 function backup() {
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Download a backup to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores and paused tests. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
-  $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog)], { type: 'application/json' }));
+  $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate)], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-  $('#im').onchange = async e => { try { prog = L.importData(await e.target.files[0].text()); save(); $('#msg').textContent = 'Restored.'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 home();

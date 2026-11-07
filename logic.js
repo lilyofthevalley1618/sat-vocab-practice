@@ -95,13 +95,21 @@ function quizTypes(n, intro, rnd = Math.random) {
   const off = Math.floor(rnd() * 2);
   return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
 }
-function exportData(prog) { return JSON.stringify({ app: 'sat-vocab-practice', v: 1, progress: prog }); }
+// v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
+function exportData(prog, gate) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate() }); }
 function importData(text) {
   const o = JSON.parse(text);
-  if (!o || o.app !== 'sat-vocab-practice' || typeof o.progress !== 'object') throw new Error('Not a valid backup file');
+  if (!o || o.app !== 'sat-vocab-practice' || typeof o.progress !== 'object' || !o.progress) throw new Error('Not a valid backup file');
   for (const [k, p] of Object.entries(o.progress))
     if (typeof p.stage !== 'number' || typeof p.due !== 'number') throw new Error('Bad entry: ' + k);
-  return o.progress;
+  let gate = null;
+  if (o.gate != null) {
+    const g = o.gate;
+    if (typeof g !== 'object' || ['passed', 'best', 'resume'].some(f => g[f] != null && typeof g[f] !== 'object')) throw new Error('Bad unlock data');
+    gate = { passed: g.passed || {}, best: g.best || {}, resume: g.resume || {} };
+    for (const s of Object.values(gate.resume)) if (!s || !Array.isArray(s.queue) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) throw new Error('Bad paused test');
+  }
+  return { progress: o.progress, gate };
 }
 const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

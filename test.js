@@ -17,7 +17,10 @@ assert.deepStrictEqual(L.weakWords(P, W), [w]);
 assert(L.checkTyped(' ABATE ', w) && !L.checkTyped('abait', w));
 const c = L.choices(w, W); assert.strictEqual(c.length, 4); assert(c.includes(w)); assert.strictEqual(new Set(c).size, 4);
 assert(c.every(x => x.p === w.p));
-assert.deepStrictEqual(L.importData(L.exportData(P)), P);
+assert.deepStrictEqual(L.importData(L.exportData(P)).progress, P);
+const old = JSON.stringify({ app: 'sat-vocab-practice', v: 1, progress: P }); const ro = L.importData(old);
+assert.deepStrictEqual(ro.progress, P); assert.strictEqual(ro.gate, null); // v1 keeps existing unlocks
+assert.throws(() => L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: { resume: { x: {} } } })));
 assert.throws(() => L.importData('{"x":1}'));
 const qt = L.quizTypes(10, true); assert(qt.includes('word2def') && qt.includes('def2word') && !qt.includes('type'));
 assert(L.quizTypes(2, true).length === 2 && new Set(L.quizTypes(2, true)).size === 2);
@@ -63,4 +66,7 @@ F = JSON.parse(JSON.stringify(F)); assert.strictEqual(F.done, 99); assert.strict
 let n = 0; while (!L.answerSession(F, true)) n++;
 assert.strictEqual(F.done, 384); assert.strictEqual(new Set(F.seen).size, 384); assert.strictEqual(F.missed.length, 1);
 const rt = L.quizTypes(20, true); assert(rt.filter(x => x === 'word2def').length === 10 && rt.filter(x => x === 'def2word').length === 10);
+const bk = L.importData(L.exportData(P, G)); assert.deepStrictEqual(bk.gate.passed, G.passed); assert.deepStrictEqual(bk.gate.best, G.best);
+const G3 = L.newGate(); G3.resume.final = JSON.parse(JSON.stringify(L.newSession(['a', 'b']))); L.answerSession(G3.resume.final, false);
+const b3 = L.importData(L.exportData({}, G3)); assert.deepStrictEqual(b3.gate.resume.final, G3.resume.final);
 console.log('all tests passed');
