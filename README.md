@@ -1,0 +1,4 @@
+# SAT Vocab Practice
+A calm, no-account practice area for the 384 words in [PrepScholar's SAT vocabulary list](https://blog.prepscholar.com/sat-vocabulary-words): 20 units of up to 20 words, flashcards, multiple choice, typed recall, spaced reviews (1, 3, 7, 14, 30 days), weak-word practice, and backup/restore. Progress is stored in your browser's localStorage.
+
+Definitions are mostly from [Open English WordNet 2024](https://en-word.net/) (CC BY 4.0). Not affiliated with College Board. Run tests with `node test.js`.
