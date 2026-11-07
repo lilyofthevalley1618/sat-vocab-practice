@@ -95,6 +95,8 @@ function validResume(s, words) {
 }
 // Daily Review: each Pacific calendar day, every word started before that day must be
 // answered right on the first try (one full clean run) before the path can continue.
+// Grammar practice: best first-try score per topic; never lowered.
+function recordGrammar(g, id, total, right) { const pct = Math.round(right / total * 100), p = g[id] || { best: 0, tries: 0 }; p.tries++; p.best = Math.max(p.best, pct); g[id] = p; return pct; }
 function laDay(now = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
 }
@@ -130,7 +132,7 @@ function quizTypes(n, intro, rnd = Math.random) {
   return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
 }
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
-function exportData(prog, gate) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate() }); }
+function exportData(prog, gate, grammar) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} }); }
 function importData(text) {
   const o = JSON.parse(text);
   if (!o || o.app !== 'sat-vocab-practice' || typeof o.progress !== 'object' || !o.progress) throw new Error('Not a valid backup file');
@@ -144,7 +146,12 @@ function importData(text) {
     if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed };
     for (const s of Object.values(gate.resume)) if (!s || !Array.isArray(s.queue) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) throw new Error('Bad paused test');
   }
-  return { progress: o.progress, gate };
+  let grammar = null; // optional; older backups have none and keep current grammar scores
+  if (o.grammar != null) {
+    if (typeof o.grammar !== 'object') throw new Error('Bad grammar data');
+    grammar = {}; for (const [k, v] of Object.entries(o.grammar)) if (v && typeof v.best === 'number') grammar[k] = { best: v.best, tries: +v.tries || 0 };
+  }
+  return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

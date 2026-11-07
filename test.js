@@ -122,4 +122,12 @@ const EG = L.newGate(); EG.passed.u0 = 1; L.ensureDaily(EG, DP, DT); assert(L.da
 // small pool: options stay within learned words
 const ds = { type: 'daily', words: [W[0], W[1]], pool: [W[0], W[1]] }; const dq = L.buildQuestion(ds, L.key(W[0]), 0, BY);
 assert.strictEqual(dq.options.length, 2); assert(dq.options.every(o => o === W[0] || o === W[1]));
+// Grammar
+const GR = require('./grammar.js'); assert.strictEqual(GR.length, 19); assert.strictEqual(new Set(GR.map(x => x.id)).size, 19);
+GR.forEach(x => { assert(x.title && x.rule && x.trap && x.before && x.after && x.before !== x.after, x.id); assert(x.qs.length >= 2);
+  x.qs.forEach(q => { assert(Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length && q.why, x.id); assert.strictEqual(new Set(q.o).size, q.o.length); }); });
+const GG = {}; assert.strictEqual(L.recordGrammar(GG, 'tense', 2, 1), 50); L.recordGrammar(GG, 'tense', 2, 2); L.recordGrammar(GG, 'tense', 2, 0);
+assert.deepStrictEqual(GG.tense, { best: 100, tries: 3 });
+const gb = L.importData(L.exportData(P, G, GG)); assert.deepStrictEqual(gb.grammar, GG); assert.deepStrictEqual(gb.gate.passed, G.passed);
+assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: G })).grammar, null); // older v2 backup keeps grammar
 console.log('all tests passed');

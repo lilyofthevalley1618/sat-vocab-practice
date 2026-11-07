@@ -7,6 +7,7 @@ const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEnt
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
 let onHome = false;
+const RKEY = 'satGrammar.v1'; let gram = JSON.parse(localStorage.getItem(RKEY) || '{}'); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
 const dayCheck = () => { if (L.ensureDaily(gate, prog)) { saveGate(); if (onHome) home(); } };  // re-renders the Path tab on a new day
 dayCheck(); setInterval(dayCheck, 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && dayCheck());
@@ -21,8 +22,46 @@ const VERSION = document.querySelector('meta[name=app-version]').content;
 let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
 const startDaily = () => { dayCheck(); const st = dailyStage(); if (!gate.daily.passed && st.words.length) quiz(st.words, 'Daily Review', true, st.words, st); else dailyView(); };
-const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button></nav>`;
-const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; };
+const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button></nav>`;
+const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
+// Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
+function grammarView() {
+  onHome = false;
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p class="muted">${GRAMMAR.length} rules tested in the Digital SAT's Reading and Writing section (Standard English Conventions and transitions). On the Digital SAT these come as short single-passage questions, not long paper-test passages. Explanations and practice here are original; topics drawn from PrepScholar's <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a> and <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a>. Not affiliated with PrepScholar or College Board.</p></section>
+   <div class="units">${GRAMMAR.map((t, i) => `<div class="unit"><h3>${i + 1}. ${esc(t.title)}</h3><small>${esc(t.rule.slice(0, 80))}…</small><small>${gram[t.id] ? `Best ${gram[t.id].best}%` : 'Not practiced yet'}</small>
+     <div class="row" style="margin-top:.5rem"><button data-g="${i}">Open</button></div></div>`).join('')}</div>`;
+  wireTabs(); app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => topicView(+b.dataset.g));
+}
+function topicView(i) {
+  const t = GRAMMAR[i];
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)}</h2><p><b>Rule:</b> ${esc(t.rule)}</p><p><b>Common trap:</b> ${esc(t.trap)}</p>
+   <p class="fb no"><b>Before:</b> ${esc(t.before)}</p><p class="fb ok"><b>After:</b> ${esc(t.after)}</p>
+   <div class="row"><button class="alt" id="gp">Practice (${t.qs.length} questions)</button><button class="ghost" id="gb">All rules</button></div></section>`;
+  wireTabs(); $('#gb').onclick = grammarView; $('#gp').onclick = () => gramQuiz(i, t.qs.map((_, n) => n), true);
+}
+function gramQuiz(i, list, scored) {
+  const t = GRAMMAR[i]; let n = 0, right = 0; const missed = [];
+  const show = () => {
+    if (n >= list.length) {
+      const pct = scored ? L.recordGrammar(gram, t.id, list.length, right) : null; if (scored) saveGram();
+      app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)} — done</h2><p>${right} of ${list.length} right${scored ? ` (${pct}%; best ${gram[t.id].best}%)` : ''}.</p>
+        <div class="row">${missed.length ? '<button class="alt" id="gr">Retry missed</button>' : ''}<button id="gt">Back to rule</button><button class="ghost" id="ga">All rules</button></div></section>`;
+      wireTabs(); $('#gt').onclick = () => topicView(i); $('#ga').onclick = grammarView; if ($('#gr')) $('#gr').onclick = () => gramQuiz(i, missed.slice(), false);
+      return;
+    }
+    const q = t.qs[list[n]];
+    app.innerHTML = tabs('grammar') + `<section class="card"><p class="muted">${esc(t.title)} · ${n + 1}/${list.length}</p><p><b>${esc(q.q)}</b></p>
+      <div class="opts">${q.o.map((o, k) => `<button data-k="${k}">${esc(o)}</button>`).join('')}</div><div id="fb"></div></section>`;
+    wireTabs();
+    app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
+      const k = +b.dataset.k, ok = k === q.a; if (ok) right++; else missed.push(list[n]);
+      b.classList.add(ok ? 'ok' : 'no'); app.querySelectorAll('.opts button')[q.a].classList.add('ok'); app.querySelectorAll('.opts button').forEach(x => x.disabled = true);
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'} ${esc(q.why)}<p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
+      $('#go').focus(); $('#go').onclick = () => { n++; show(); };
+    });
+  };
+  show();
+}
 function dailyView() {
   onHome = true; dayCheck(); const dly = gate.daily;
   app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>
@@ -153,12 +192,12 @@ function done(title, total, m, stage, result) {
 }
 
 function backup() {
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores and paused tests. Download one to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, paused tests, Daily Review and grammar scores. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
-  $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate)], { type: 'application/json' }));
+  $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate, gram)], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } if (r.grammar) { gram = r.grammar; saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 home();
