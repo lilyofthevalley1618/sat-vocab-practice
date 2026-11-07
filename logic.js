@@ -1,7 +1,7 @@
 // Pure practice logic (no DOM) — tested in test.js
 const DAY = 864e5;
 const INTERVALS = [1, 3, 7, 14, 30]; // days
-const UNIT_SIZE = 20;
+const UNIT_SIZE = 10;
 
 function makeUnits(words, size = UNIT_SIZE) {
   const units = [];
@@ -52,6 +52,12 @@ function choices(word, all, n = 4, rnd = Math.random) {
   return shuffle([word, ...same.concat(rest).slice(0, n - 1)], rnd);
 }
 
+// Question types for a session. Intro (unit learn) quizzes alternate the two
+// multiple-choice directions so both appear; other sessions also mix in typed recall.
+function quizTypes(n, intro, rnd = Math.random) {
+  const off = Math.floor(rnd() * 2);
+  return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
+}
 function exportData(prog) { return JSON.stringify({ app: 'sat-vocab-practice', v: 1, progress: prog }); }
 function importData(text) {
   const o = JSON.parse(text);
@@ -60,5 +66,5 @@ function importData(text) {
     if (typeof p.stage !== 'number' || typeof p.due !== 'number') throw new Error('Bad entry: ' + k);
   return o.progress;
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

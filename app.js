@@ -14,7 +14,7 @@ function home() {
    <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
-   <h2>Units (up to 20 words each)</h2><div class="units">${UNITS.map((u, i) => {
+   <h2>Units (up to 10 words each)</h2><div class="units">${UNITS.map((u, i) => {
      const st = u.filter(w => !L.isNew(prog, w)).length, d = L.dueWords(prog, u).length;
      return `<div class="unit"><h3>Unit ${i + 1}</h3><small>${esc(u[0].w)} – ${esc(u[u.length - 1].w)}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${st}/${u.length} started · ${d} due</small>
@@ -37,7 +37,7 @@ function list(i) {
 // Learn: new words shown as cards first, then the whole unit is quizzed.
 function learn(i) {
   const fresh = UNITS[i].filter(w => L.isNew(prog, w));
-  if (fresh.length) flash(fresh, `Unit ${i + 1}: meet the new words`, () => quiz(UNITS[i], `Unit ${i + 1} practice`), false);
+  if (fresh.length) flash(fresh, `Unit ${i + 1}: meet the new words`, () => quiz(UNITS[i], `Unit ${i + 1} practice`, true), false);
   else quiz(UNITS[i], `Unit ${i + 1} practice`);
 }
 
@@ -61,13 +61,13 @@ function flash(words, title, then, graded = true) {
 }
 
 // Quiz: mixed question types; a miss is graded once and retried later in the same session.
-function quiz(words, title) {
+function quiz(words, title, intro = false) {
   if (!words.length) return home();
   let queue = L.shuffle(words).map(w => ({ w, retry: false })), done_ = 0; const missed = [], seen = new Set();
-  const total = words.length;
+  const total = words.length, types = L.quizTypes(1000, intro); let qi = 0;
   const next = () => {
     if (!queue.length) return done(title, total, missed);
-    const { w, retry } = queue[0], type = ['def2word', 'word2def', 'type'][Math.floor(Math.random() * 3)];
+    const { w, retry } = queue[0], type = types[qi++];
     const opts = L.choices(w, WORDS);
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
