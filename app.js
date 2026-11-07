@@ -37,8 +37,8 @@ function list(i) {
 // Learn: new words shown as cards first, then the whole unit is quizzed.
 function learn(i) {
   const fresh = UNITS[i].filter(w => L.isNew(prog, w));
-  if (fresh.length) flash(fresh, `Unit ${i + 1}: meet the new words`, () => quiz(UNITS[i], `Unit ${i + 1} practice`, true), false);
-  else quiz(UNITS[i], `Unit ${i + 1} practice`);
+  if (fresh.length) flash(fresh, `Unit ${i + 1}: meet the new words`, () => quiz(UNITS[i], `Unit ${i + 1} practice`, true, UNITS[i]), false);
+  else quiz(UNITS[i], `Unit ${i + 1} practice`, false, UNITS[i]);
 }
 
 function flash(words, title, then, graded = true) {
@@ -61,14 +61,15 @@ function flash(words, title, then, graded = true) {
 }
 
 // Quiz: mixed question types; a miss is graded once and retried later in the same session.
-function quiz(words, title, intro = false) {
+// pool: for unit quizzes, wrong options come from the same unit's words.
+function quiz(words, title, intro = false, pool = WORDS) {
   if (!words.length) return home();
   let queue = L.shuffle(words).map(w => ({ w, retry: false })), done_ = 0; const missed = [], seen = new Set();
   const total = words.length, types = L.quizTypes(1000, intro); let qi = 0;
   const next = () => {
     if (!queue.length) return done(title, total, missed);
     const { w, retry } = queue[0], type = types[qi++];
-    const opts = L.choices(w, WORDS);
+    const opts = L.choices(w, pool);
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
       <form id="tf" class="row"><input type="text" id="ti" autocomplete="off" autocapitalize="off" aria-label="Your answer"><button>Check</button><button type="button" class="ghost" id="hint">Show first letter</button></form>`;

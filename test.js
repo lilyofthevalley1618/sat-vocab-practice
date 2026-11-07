@@ -21,4 +21,10 @@ assert.deepStrictEqual(L.importData(L.exportData(P)), P);
 assert.throws(() => L.importData('{"x":1}'));
 const qt = L.quizTypes(10, true); assert(qt.includes('word2def') && qt.includes('def2word') && !qt.includes('type'));
 assert(L.quizTypes(2, true).length === 2 && new Set(L.quizTypes(2, true)).size === 2);
+for (const u of U) for (const w of u) {
+  const ch = L.choices(w, u); const uk = new Set(u.map(L.key));
+  assert.strictEqual(ch.length, Math.min(4, u.length)); assert(ch.every(x => uk.has(L.key(x))));
+  assert.strictEqual(ch.filter(x => x === w).length, 1);
+  assert.strictEqual(new Set(ch.map(L.key)).size, ch.length); assert.strictEqual(new Set(ch.map(x => x.d.toLowerCase())).size, ch.length);
+}
 console.log('all tests passed');

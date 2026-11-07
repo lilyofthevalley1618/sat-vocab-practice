@@ -46,7 +46,12 @@ function shuffle(a, rnd = Math.random) {
 }
 // Distractors: prefer same part of speech so options look plausible.
 function choices(word, all, n = 4, rnd = Math.random) {
-  const others = all.filter(w => key(w) !== key(word));
+  const seenD = new Set([word.d.toLowerCase()]), seenW = new Set([key(word)]);
+  const others = shuffle(all, rnd).filter(w => {
+    const d = w.d.toLowerCase();
+    if (seenW.has(key(w)) || seenD.has(d)) return false;
+    seenW.add(key(w)); seenD.add(d); return true;
+  });
   const same = shuffle(others.filter(w => w.p === word.p), rnd);
   const rest = shuffle(others.filter(w => w.p !== word.p), rnd);
   return shuffle([word, ...same.concat(rest).slice(0, n - 1)], rnd);
