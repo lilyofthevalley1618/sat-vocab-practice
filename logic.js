@@ -30,7 +30,7 @@ function grade(prog, word, correct, now = Date.now()) {
 const isNew = (prog, w) => !prog[key(w)];
 const dueWords = (prog, words, now = Date.now()) =>
   words.filter(w => prog[key(w)] && prog[key(w)].due <= now).sort((a, b) => prog[key(a)].due - prog[key(b)].due);
-function weakWords(prog, words, n = 20) {
+function weakWords(prog, words, n = Infinity) {
   return words.filter(w => prog[key(w)] && prog[key(w)].wrong > 0)
     .sort((a, b) => score(prog[key(b)]) - score(prog[key(a)])).slice(0, n);
 }
@@ -86,7 +86,7 @@ function recordAttempt(gate, id, total, firstTryMisses, now = Date.now()) {
 }
 // Quiz session (serializable for pause/resume). First answer per word is what counts; misses retry later.
 function newSession(keys, rnd = Math.random) {
-  return { queue: shuffle(keys, rnd).map(k => ({ k, retry: false })), total: keys.length, done: 0, qi: 0, missed: [], seen: [] };
+  return { keys: keys.slice(), queue: shuffle(keys, rnd).map(k => ({ k, retry: false })), total: keys.length, done: 0, qi: 0, missed: [], seen: [] };
 }
 // A saved session is only resumed if it still matches the stage's word list.
 function validResume(s, words) {
@@ -115,6 +115,16 @@ function recordDaily(gate, day, total, firstTryMisses) {
   const perfect = total > 0 && firstTryMisses === 0;
   if (perfect) gate.daily.passed = true;
   return { pct: Math.round((total - firstTryMisses) / total * 100), perfect };
+}
+// Every weak word (missed at least once), no cap.
+const allWeak = (prog, words) => words.filter(w => prog[key(w)] && prog[key(w)].wrong > 0);
+// Review/Daily word list = base range plus all weak words, de-duplicated, in base order then weak.
+function withWeak(base, prog, words) { const seen = new Set(base.map(key)); return base.concat(allWeak(prog, words).filter(w => !seen.has(key(w)) && seen.add(key(w)))); }
+// Reviews resume from their own saved snapshot as long as it still covers the base range.
+function resumeSnapshot(s, base, byKey) {
+  if (!s || !Array.isArray(s.keys) || !Array.isArray(s.queue) || s.total !== s.keys.length || !s.keys.every(k => byKey[k])) return null;
+  const ks = new Set(s.keys); if (!base.every(w => ks.has(key(w))) || !s.queue.every(q => ks.has(q.k))) return null;
+  return s.keys.map(k => byKey[k]);
 }
 function answerSession(s, correct) {
   const { k } = s.queue.shift(); s.qi++;
@@ -153,5 +163,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

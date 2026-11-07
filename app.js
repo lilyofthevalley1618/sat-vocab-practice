@@ -21,7 +21,7 @@ $('#home').onclick = e => { e.preventDefault(); home(); };
 const VERSION = document.querySelector('meta[name=app-version]').content;
 let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
-const startDaily = () => { dayCheck(); const st = dailyStage(); if (!gate.daily.passed && st.words.length) quiz(st.words, 'Daily Review', true, st.words, st); else dailyView(); };
+const startDaily = () => { dayCheck(); const st = dailyStage(); if (!gate.daily.passed && (st.words.length || gate.resume.daily)) quiz(st.words, 'Daily Review', true, st.words, st); else dailyView(); };
 const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button></nav>`;
 const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
 // Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
@@ -65,9 +65,9 @@ function gramQuiz(i, list, scored) {
 function dailyView() {
   onHome = true; dayCheck(); const dly = gate.daily;
   app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>
-   ${!dly.words.length ? '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>'
+   ${!dly.words.length && dly.passed ? '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>'
      : dly.passed ? `<p>✓ Done for today: all ${dly.words.length} words right on the first try. Your path is open.</p>`
-     : `<p>${dly.words.length} words you've learned so far. Get them all right on the first try to continue your path today.${gate.resume.daily ? ` (Paused at ${gate.resume.daily.done}/${gate.resume.daily.total})` : ''}</p><button class="alt" id="daily">${gate.resume.daily ? 'Resume Daily Review' : 'Start Daily Review'}</button>`}</section>`;
+     : `<p>${L.withWeak(dailyStage().words, prog, WORDS).length} words: ${dly.words.length} learned before today${(() => { const n = L.withWeak(dailyStage().words, prog, WORDS).length - dly.words.length; return n ? ` plus ${n} weak word${n > 1 ? 's' : ''} from today` : ''; })()}. Get them all right on the first try to continue your path today.${gate.resume.daily ? ` (Paused at ${gate.resume.daily.done}/${gate.resume.daily.total})` : ''}</p><button class="alt" id="daily">${gate.resume.daily ? 'Resume Daily Review' : 'Start Daily Review'}</button>`}</section>`;
   wireTabs(); if ($('#daily')) $('#daily').onclick = startDaily;
 }
 function home() {
@@ -86,7 +86,7 @@ function home() {
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
      const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
      const btn = it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : res ? `Resume (${res.done}/${res.total})` : 'Start';
-     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : u.length + ' words'}</small>
+     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'review' ? `${u.length} words + ${L.withWeak(u, prog, WORDS).length - u.length} other weak words` : u.length + ' words'}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
      <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
    }).join('')}</div>`;
@@ -138,9 +138,17 @@ function flash(words, title, then, graded = true) {
 // stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   onHome = false;
-  if (!words.length) return home();
   const keep = stage && stage.type !== 'unit';
-  let s = keep && L.validResume(gate.resume[stage.id], words) ? gate.resume[stage.id] : null;
+  let s = null;
+  if (stage && (stage.type === 'review' || stage.type === 'daily')) {
+    // Snapshot base range + all weak words at session start; resume keeps that snapshot.
+    const snap = L.resumeSnapshot(gate.resume[stage.id], words, BYKEY);
+    if (snap) { s = gate.resume[stage.id]; words = snap; }
+    else if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; s.keys = words.map(L.key); } // older paused run
+    else words = L.withWeak(words, prog, WORDS);
+    pool = words;
+  } else if (keep && L.validResume(gate.resume[stage.id], words)) s = gate.resume[stage.id];
+  if (!words.length) return home();
   if (!s) s = L.newSession(words.map(L.key));
   const rtypes = intro ? null : L.quizTypes(1000, false);
   const persist = () => { if (keep && !(stage.type === 'daily' && (!gate.daily || gate.daily.day !== stage.day))) { gate.resume[stage.id] = s; saveGate(); } };

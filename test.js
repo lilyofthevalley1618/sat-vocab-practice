@@ -130,4 +130,22 @@ const GG = {}; assert.strictEqual(L.recordGrammar(GG, 'tense', 2, 1), 50); L.rec
 assert.deepStrictEqual(GG.tense, { best: 100, tries: 3 });
 const gb = L.importData(L.exportData(P, G, GG)); assert.deepStrictEqual(gb.grammar, GG); assert.deepStrictEqual(gb.gate.passed, G.passed);
 assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: G })).grammar, null); // older v2 backup keeps grammar
+// Weak words in reviews
+{ const WP = {}, r0 = path.find(x => x.id === 'r0'), BYK = Object.fromEntries(W.map(w => [L.key(w), w]));
+  r0.words.forEach(w => L.grade(WP, w, true, 1)); L.grade(WP, r0.words[0], false, 1); // weak inside range
+  const outside = W.slice(200, 240); outside.forEach(w => L.grade(WP, w, false, 1)); // 40 weak outside range (>30)
+  assert.strictEqual(L.allWeak(WP, W).length, 41); assert.strictEqual(L.weakWords(WP, W).length, 41);
+  const rw = L.withWeak(r0.words, WP, W); assert.strictEqual(rw.length, 60); assert.strictEqual(new Set(rw.map(L.key)).size, 60);
+  assert(outside.every(w => rw.includes(w)));
+  const rs = L.newSession(rw.map(L.key)); L.answerSession(rs, true); const saved = JSON.parse(JSON.stringify(rs));
+  L.grade(WP, W[300], false, 2); // new weak word after start: snapshot unchanged
+  const snap = L.resumeSnapshot(saved, r0.words, BYK); assert.strictEqual(snap.length, 60); assert(!snap.includes(W[300]));
+  assert.strictEqual(L.resumeSnapshot(L.newSession(['abate']), r0.words, BYK), null); // doesn't cover range -> fresh
+  const q = L.buildQuestion({ type: 'review', words: snap, pool: snap }, L.key(outside[0]), 0, BYK); assert(q.options.every(o => snap.includes(o)));
+  // daily: today's weak words added; passed day not relocked
+  const DG2 = L.newGate(), D1 = Date.UTC(2026, 10, 9, 20); const DPp = { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } };
+  L.ensureDaily(DG2, DPp, D1); L.grade(DPp, W[100], false, D1);
+  const dw = L.withWeak(DG2.daily.words.map(k => BYK[k]), DPp, W); assert.deepStrictEqual(dw.map(L.key), ['abate', L.key(W[100])]);
+  L.recordDaily(DG2, DG2.daily.day, 2, 0); L.grade(DPp, W[101], false, D1); L.ensureDaily(DG2, DPp, D1 + 1000); assert(!L.dailyBlocks(DG2));
+}
 console.log('all tests passed');
