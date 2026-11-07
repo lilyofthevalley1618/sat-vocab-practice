@@ -95,4 +95,31 @@ for (let r = 0; r < 200; r++) for (const qi of [0, 1]) {
 // a resumed (JSON) session still gets fresh pair-pool options
 const RS = JSON.parse(JSON.stringify(L.newSession(u2.words.map(L.key)))); assert(L.buildQuestion(u2, RS.queue[0].k, RS.qi, BY).options.every(o => pair.has(L.key(o))));
 const ex = [0, 1].map(qi => L.buildQuestion(u2, 'adapt', qi, BY)); console.log(ex.map(q => q.type + ': ' + q.options.map(o => q.type === 'word2def' ? o.w + '=' + o.d : o.w).join(' | ')).join('\n'));
+// Daily Review
+const DT = Date.UTC(2026, 10, 7, 20); // Nov 7 12pm PST
+assert.strictEqual(L.laDay(DT), '2026-11-07');
+assert.strictEqual(L.laDay(Date.UTC(2026, 10, 8, 7, 59)), '2026-11-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 10, 8, 8)), '2026-11-08');
+assert.strictEqual(L.laDay(Date.UTC(2026, 6, 8, 6, 59)), '2026-07-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 6, 8, 7)), '2026-07-08'); // PDT
+assert.strictEqual(L.laDay(Date.UTC(2026, 2, 8, 7, 59)), '2026-03-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 2, 8, 8)), '2026-03-08'); // DST start day
+const DG = L.newGate(), DP = {};
+assert(L.ensureDaily(DG, DP, DT)); assert(!L.dailyBlocks(DG)); // new user: nothing to review
+L.grade(DP, W[0], true, DT); L.grade(DP, W[1], true, DT); DG.passed.u0 = DT;
+assert(!L.ensureDaily(DG, DP, DT + 3600e3)); assert(!L.dailyBlocks(DG)); // words learned today don't block today
+const DT2 = DT + 864e5; assert(L.ensureDaily(DG, DP, DT2)); assert(L.dailyBlocks(DG)); assert.deepStrictEqual(DG.daily.words, [L.key(W[0]), L.key(W[1])].sort());
+assert(DG.passed.u0); // unlocks kept
+const day2 = DG.daily.day;
+assert(!L.recordDaily(DG, day2, 2, 1).perfect); assert(L.dailyBlocks(DG)); // mistake
+const DS = L.newSession(DG.daily.words); L.answerSession(DS, false); while (DS.queue.length) L.answerSession(DS, true);
+assert(!L.recordDaily(DG, day2, DS.total, DS.missed.length).perfect); assert(L.dailyBlocks(DG)); // miss then retry right ≠ perfect
+assert(L.recordDaily(DG, day2, 2, 0).perfect); assert(!L.dailyBlocks(DG));
+L.grade(DP, W[2], true, DT2); assert(!L.ensureDaily(DG, DP, DT2 + 1000)); assert(!L.dailyBlocks(DG)); // no re-block same day
+assert(L.recordDaily(DG, '2026-01-01', 2, 0).stale); // old-day run doesn't count
+// rollover clears paused daily session; backup keeps daily
+DG.resume.daily = L.newSession(['x']); L.ensureDaily(DG, DP, DT2 + 864e5); assert(!DG.resume.daily); assert.strictEqual(DG.daily.words.length, 3);
+const DB = L.importData(L.exportData(DP, DG)); assert.deepStrictEqual(DB.gate.daily, DG.daily); assert.deepStrictEqual(DB.gate.passed, DG.passed);
+// existing user with no daily record: first load blocks on all started words
+const EG = L.newGate(); EG.passed.u0 = 1; L.ensureDaily(EG, DP, DT); assert(L.dailyBlocks(EG)); assert.strictEqual(EG.daily.words.length, 3);
+// small pool: options stay within learned words
+const ds = { type: 'daily', words: [W[0], W[1]], pool: [W[0], W[1]] }; const dq = L.buildQuestion(ds, L.key(W[0]), 0, BY);
+assert.strictEqual(dq.options.length, 2); assert(dq.options.every(o => o === W[0] || o === W[1]));
 console.log('all tests passed');

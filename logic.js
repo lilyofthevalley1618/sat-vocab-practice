@@ -93,6 +93,27 @@ function validResume(s, words) {
   if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || s.total !== words.length) return false;
   const ks = new Set(words.map(key)); return s.queue.every(q => ks.has(q.k)) && s.seen.every(k => ks.has(k));
 }
+// Daily Review: each Pacific calendar day, every word started before that day must be
+// answered right on the first try (one full clean run) before the path can continue.
+function laDay(now = Date.now()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
+}
+function ensureDaily(gate, prog, now = Date.now()) {
+  const d = laDay(now);
+  if (!gate.daily || gate.daily.day !== d) {
+    const words = Object.keys(prog).sort();
+    gate.daily = { day: d, words, passed: words.length === 0 };
+    delete gate.resume.daily; return true;
+  }
+  return false;
+}
+const dailyBlocks = gate => !!(gate.daily && !gate.daily.passed);
+function recordDaily(gate, day, total, firstTryMisses) {
+  if (!gate.daily || gate.daily.day !== day) return { perfect: false, stale: true };
+  const perfect = total > 0 && firstTryMisses === 0;
+  if (perfect) gate.daily.passed = true;
+  return { pct: Math.round((total - firstTryMisses) / total * 100), perfect };
+}
 function answerSession(s, correct) {
   const { k } = s.queue.shift(); s.qi++;
   if (!s.seen.includes(k)) { s.seen.push(k); if (!correct) s.missed.push(k); }
@@ -120,9 +141,10 @@ function importData(text) {
     const g = o.gate;
     if (typeof g !== 'object' || ['passed', 'best', 'resume'].some(f => g[f] != null && typeof g[f] !== 'object')) throw new Error('Bad unlock data');
     gate = { passed: g.passed || {}, best: g.best || {}, resume: g.resume || {} };
+    if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed };
     for (const s of Object.values(gate.resume)) if (!s || !Array.isArray(s.queue) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) throw new Error('Bad paused test');
   }
   return { progress: o.progress, gate };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
