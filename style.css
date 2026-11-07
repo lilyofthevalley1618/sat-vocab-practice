@@ -22,3 +22,4 @@ input[type=text]{font:inherit;padding:.55rem;border-radius:10px;border:2px solid
 .flash{min-height:180px;display:flex;flex-direction:column;justify-content:center;text-align:center;cursor:pointer}
 table{width:100%;border-collapse:collapse;font-size:.92rem}td,th{padding:.35rem;border-bottom:1px solid #eae3d6;text-align:left}
 .muted{color:var(--muted)}h2{margin:.2rem 0 .7rem;font-size:1.25rem}
+.unit.review{border-color:var(--sage-d);background:#f4f5ee}

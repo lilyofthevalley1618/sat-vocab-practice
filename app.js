@@ -14,8 +14,11 @@ function home() {
    <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
-   <h2>Units (up to 10 words each)</h2><div class="units">${UNITS.map((u, i) => {
-     const st = u.filter(w => !L.isNew(prog, w)).length, d = L.dueWords(prog, u).length;
+   <h2>Units (up to 10 words each)</h2><div class="units">${L.makePath(UNITS).map(it => {
+     const u = it.words, i = it.i, st = u.filter(w => !L.isNew(prog, w)).length, d = L.dueWords(prog, u).length;
+     if (it.type === 'review') return `<div class="unit review"><h3>Review ${it.a + 1}–${it.b + 1}</h3><small>All ${u.length} words from Units ${it.a + 1} and ${it.b + 1}</small>
+     <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${st}/${u.length} started · ${d} due</small>
+     <div class="row" style="margin-top:.5rem"><button class="alt" data-r="${it.a}">Review</button></div></div>`;
      return `<div class="unit"><h3>Unit ${i + 1}</h3><small>${esc(u[0].w)} – ${esc(u[u.length - 1].w)}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${st}/${u.length} started · ${d} due</small>
      <div class="row" style="margin-top:.5rem"><button data-l="${i}">${st < u.length ? 'Learn' : 'Practice'}</button><button class="ghost" data-f="${i}">Cards</button><button class="ghost" data-w="${i}">List</button></div></div>`;
@@ -24,6 +27,8 @@ function home() {
   $('#weak').onclick = () => quiz(weak, 'Weak words');
   $('#data').onclick = backup;
   app.querySelectorAll('[data-l]').forEach(b => b.onclick = () => learn(+b.dataset.l));
+  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const x = +b.dataset.r, ws = UNITS[x].concat(UNITS[x + 1]);
+    quiz(ws, `Review ${x + 1}–${x + 2}`, true, ws); });
   app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => flash(UNITS[+b.dataset.f], `Unit ${+b.dataset.f + 1} cards`));
   app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => list(+b.dataset.w));
 }

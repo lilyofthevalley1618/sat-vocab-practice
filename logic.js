@@ -59,6 +59,15 @@ function choices(word, all, n = 4, rnd = Math.random) {
 
 // Question types for a session. Intro (unit learn) quizzes alternate the two
 // multiple-choice directions so both appear; other sessions also mix in typed recall.
+// Learning path: a review block after every two units (Review 1–2, Review 3–4, ...).
+function makePath(units) {
+  const path = [];
+  units.forEach((u, i) => {
+    path.push({ type: 'unit', i, words: u });
+    if (i % 2 === 1) path.push({ type: 'review', a: i - 1, b: i, words: units[i - 1].concat(u) });
+  });
+  return path;
+}
 function quizTypes(n, intro, rnd = Math.random) {
   const off = Math.floor(rnd() * 2);
   return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
@@ -71,5 +80,5 @@ function importData(text) {
     if (typeof p.stage !== 'number' || typeof p.due !== 'number') throw new Error('Bad entry: ' + k);
   return o.progress;
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

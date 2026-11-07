@@ -27,4 +27,15 @@ for (const u of U) for (const w of u) {
   assert.strictEqual(ch.filter(x => x === w).length, 1);
   assert.strictEqual(new Set(ch.map(L.key)).size, ch.length); assert.strictEqual(new Set(ch.map(x => x.d.toLowerCase())).size, ch.length);
 }
+const path = L.makePath(U), revs = path.filter(x => x.type === 'review');
+assert.strictEqual(revs.length, 19); assert.strictEqual(path.length, 58); assert.strictEqual(path[path.length - 1].type, 'unit');
+revs.forEach((r, n) => {
+  assert.strictEqual(r.a, 2 * n); assert.strictEqual(r.b, 2 * n + 1);
+  const pi = path.indexOf(r); assert(path[pi - 1].i === r.b && path[pi - 2].i === r.a);
+  assert.strictEqual(r.words.length, 20); assert.strictEqual(new Set(r.words.map(L.key)).size, 20);
+  assert.deepStrictEqual(r.words, U[r.a].concat(U[r.b]));
+  const rk = new Set(r.words.map(L.key));
+  for (const w of r.words) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
+});
+const rt = L.quizTypes(20, true); assert(rt.filter(x => x === 'word2def').length === 10 && rt.filter(x => x === 'def2word').length === 10);
 console.log('all tests passed');
