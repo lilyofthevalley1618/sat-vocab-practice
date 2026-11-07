@@ -2,6 +2,11 @@ const L = window.Logic, UNITS = L.makeUnits(WORDS), $ = s => document.querySelec
 const SKEY = 'satVocabProgress.v1';
 let prog = JSON.parse(localStorage.getItem(SKEY) || '{}');
 const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
+// Unlock/test state lives under its own key so word progress is never touched.
+const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
+let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
+const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
+const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Review ${it.a + 1}–${it.b + 1}` : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = t => { const d = Math.round((t - Date.now()) / L.DAY); return d <= 0 ? 'now' : d === 1 ? 'tomorrow' : `in ${d} days`; };
 $('#home').onclick = e => { e.preventDefault(); home(); };
@@ -14,36 +19,37 @@ function home() {
    <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
-   <h2>Units (up to 10 words each)</h2><div class="units">${L.makePath(UNITS).map(it => {
-     const u = it.words, i = it.i, st = u.filter(w => !L.isNew(prog, w)).length, d = L.dueWords(prog, u).length;
-     if (it.type === 'review') return `<div class="unit review"><h3>Review ${it.a + 1}–${it.b + 1}</h3><small>All ${u.length} words from Units ${it.a + 1} and ${it.b + 1}</small>
-     <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${st}/${u.length} started · ${d} due</small>
-     <div class="row" style="margin-top:.5rem"><button class="alt" data-r="${it.a}">Review</button></div></div>`;
-     return `<div class="unit"><h3>Unit ${i + 1}</h3><small>${esc(u[0].w)} – ${esc(u[u.length - 1].w)}</small>
-     <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${st}/${u.length} started · ${d} due</small>
-     <div class="row" style="margin-top:.5rem"><button data-l="${i}">${st < u.length ? 'Learn' : 'Practice'}</button><button class="ghost" data-f="${i}">Cards</button><button class="ghost" data-w="${i}">List</button></div></div>`;
+   <h2>Your path</h2><p class="muted">Units have up to 10 words. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Due reviews and weak words are always open.</p>
+   <div class="units">${PATH.map((it, idx) => {
+     const u = it.words, open = L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
+     const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
+     const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
+     const btn = it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : res ? `Resume (${res.done}/${res.total})` : 'Start';
+     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : u.length + ' words'}</small>
+     <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
+     <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
    }).join('')}</div>`;
   $('#rev').onclick = () => quiz(due.slice(0, 30), 'Due review');
   $('#weak').onclick = () => quiz(weak, 'Weak words');
   $('#data').onclick = backup;
-  app.querySelectorAll('[data-l]').forEach(b => b.onclick = () => learn(+b.dataset.l));
-  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const x = +b.dataset.r, ws = UNITS[x].concat(UNITS[x + 1]);
-    quiz(ws, `Review ${x + 1}–${x + 2}`, true, ws); });
-  app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => flash(UNITS[+b.dataset.f], `Unit ${+b.dataset.f + 1} cards`));
-  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => list(+b.dataset.w));
+  const guard = f => b => b.onclick = () => { const idx = +Object.values(b.dataset)[0]; if (L.isUnlocked(PATH, idx, gate)) f(PATH[idx], idx); };
+  app.querySelectorAll('[data-s]').forEach(guard(startStage));
+  app.querySelectorAll('[data-f]').forEach(guard(it => flash(it.words, `${label(it)} cards`)));
+  app.querySelectorAll('[data-w]').forEach(guard(it => list(it.i)));
+}
+
+function startStage(it, idx) {
+  if (!L.isUnlocked(PATH, idx, gate)) return home();
+  const run = () => quiz(it.words, label(it), true, it.words, it);
+  if (it.type === 'unit') { const fresh = it.words.filter(w => L.isNew(prog, w));
+    return fresh.length ? flash(fresh, `${label(it)}: meet the new words`, run, false) : run(); }
+  run();
 }
 
 function list(i) {
   app.innerHTML = `<section class="card"><h2>Unit ${i + 1} words</h2><table><tr><th>Word</th><th>Meaning</th><th>Next review</th></tr>${UNITS[i].map(w => {
     const p = prog[L.key(w)]; return `<tr><td><b>${esc(w.w)}</b> <span class="pos">${w.p}</span></td><td>${esc(w.d)}</td><td>${p ? fmt(p.due) : 'new'}</td></tr>`;
   }).join('')}</table><p><button id="b">Back</button></p></section>`; $('#b').onclick = home;
-}
-
-// Learn: new words shown as cards first, then the whole unit is quizzed.
-function learn(i) {
-  const fresh = UNITS[i].filter(w => L.isNew(prog, w));
-  if (fresh.length) flash(fresh, `Unit ${i + 1}: meet the new words`, () => quiz(UNITS[i], `Unit ${i + 1} practice`, true, UNITS[i]), false);
-  else quiz(UNITS[i], `Unit ${i + 1} practice`, false, UNITS[i]);
 }
 
 function flash(words, title, then, graded = true) {
@@ -65,15 +71,23 @@ function flash(words, title, then, graded = true) {
   show();
 }
 
-// Quiz: mixed question types; a miss is graded once and retried later in the same session.
-// pool: for unit quizzes, wrong options come from the same unit's words.
-function quiz(words, title, intro = false, pool = WORDS) {
+// Quiz: a miss is graded once (first try) and retried later in the same session.
+// stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
+function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   if (!words.length) return home();
-  let queue = L.shuffle(words).map(w => ({ w, retry: false })), done_ = 0; const missed = [], seen = new Set();
-  const total = words.length, types = L.quizTypes(1000, intro); let qi = 0;
+  const keep = stage && (stage.type === 'big' || stage.type === 'final');
+  let s = keep && gate.resume[stage.id];
+  if (!s) s = L.newSession(words.map(L.key));
+  const rtypes = intro ? null : L.quizTypes(1000, false);
+  const persist = () => { if (keep) { gate.resume[stage.id] = s; saveGate(); } };
+  persist();
   const next = () => {
-    if (!queue.length) return done(title, total, missed);
-    const { w, retry } = queue[0], type = types[qi++];
+    if (!s.queue.length) {
+      let result = null;
+      if (stage) { if (keep) delete gate.resume[stage.id]; result = L.recordAttempt(gate, stage.id, s.total, s.missed.length); saveGate(); }
+      return done(title, s.total, s.missed.map(k => BYKEY[k]), stage, result);
+    }
+    const { k, retry } = s.queue[0], w = BYKEY[k], type = intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000];
     const opts = L.choices(w, pool);
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
@@ -81,12 +95,12 @@ function quiz(words, title, intro = false, pool = WORDS) {
     else body = `<p class="muted">${type === 'def2word' ? 'Which word means:' : 'What does this word mean?'}</p>
       ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>` : `<div class="word">${esc(w.w)}</div>`}
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
-    app.innerHTML = `<section class="card"><p class="muted">${esc(title)} · ${done_}/${total} done${retry ? ' · retry' : ''}</p>${body}<div id="fb"></div></section>`;
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
+      <button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div>${body}<div id="fb"></div></section>`;
+    $('#pause').onclick = home;
     const answer = ok => {
-      const k = L.key(w);
-      if (!seen.has(k)) { seen.add(k); L.grade(prog, w, ok); save(); if (!ok) missed.push(w); }
-      queue.shift();
-      if (ok) done_++; else queue.splice(Math.min(3, queue.length), 0, { w, retry: true });
+      if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
+      L.answerSession(s, ok); persist();
       $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite — this one will come back shortly.'} <b>${esc(w.w)}</b>: ${esc(w.d)}${w.e ? `<br><span class="ex">“${esc(w.e)}”</span>` : ''}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
@@ -101,12 +115,15 @@ function quiz(words, title, intro = false, pool = WORDS) {
   next();
 }
 
-function done(title, total, missed) {
-  const m = [...new Set(missed)];
-  app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>
-   ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : '<p>Nothing missed this round.</p>'}
-   <div class="row">${m.length ? '<button class="alt" id="r">Retry missed words</button>' : ''}<button id="h">Back to units</button></div></section>`;
+function done(title, total, m, stage, result) {
+  const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
+  const verdict = !result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
+    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`;
+  app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
+   ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
+   <div class="row">${stage ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">Back to path</button></div></section>`;
   $('#h').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
+  if ($('#again')) $('#again').onclick = () => startStage(stage, idx);
 }
 
 function backup() {

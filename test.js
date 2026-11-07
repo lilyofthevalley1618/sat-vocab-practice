@@ -27,8 +27,10 @@ for (const u of U) for (const w of u) {
   assert.strictEqual(ch.filter(x => x === w).length, 1);
   assert.strictEqual(new Set(ch.map(L.key)).size, ch.length); assert.strictEqual(new Set(ch.map(x => x.d.toLowerCase())).size, ch.length);
 }
-const path = L.makePath(U), revs = path.filter(x => x.type === 'review');
-assert.strictEqual(revs.length, 19); assert.strictEqual(path.length, 58); assert.strictEqual(path[path.length - 1].type, 'unit');
+const path = L.makePath(U), revs = path.filter(x => x.type === 'review'), bigs = path.filter(x => x.type === 'big');
+assert.strictEqual(revs.length, 19); assert.strictEqual(bigs.length, 6); assert.strictEqual(path.length, 39 + 19 + 6 + 1);
+assert.strictEqual(path[path.length - 1].id, 'final'); assert.strictEqual(path[path.length - 2].id, 'u38');
+assert.strictEqual(path[path.length - 1].words.length, 384); assert.strictEqual(new Set(path[path.length - 1].words.map(L.key)).size, 384);
 revs.forEach((r, n) => {
   assert.strictEqual(r.a, 2 * n); assert.strictEqual(r.b, 2 * n + 1);
   const pi = path.indexOf(r); assert(path[pi - 1].i === r.b && path[pi - 2].i === r.a);
@@ -37,5 +39,28 @@ revs.forEach((r, n) => {
   const rk = new Set(r.words.map(L.key));
   for (const w of r.words) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
 });
+bigs.forEach((b, n) => {
+  const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'r' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'u' + (6 * n + 5));
+  assert.strictEqual(b.words.length, 60); assert.deepStrictEqual(b.words, W.slice(60 * n, 60 * n + 60));
+});
+// gating
+const G = L.newGate();
+assert(L.isUnlocked(path, 0, G)); for (let i = 1; i < path.length; i++) assert(!L.isUnlocked(path, i, G));
+assert.deepStrictEqual(L.recordAttempt(G, 'u0', 10, 1), { pct: 90, perfect: false }); assert(!L.isUnlocked(path, 1, G));
+// miss then retry correct in same session: still not perfect
+const S = L.newSession(U[0].map(L.key), () => 0.3); L.answerSession(S, false);
+while (S.queue.length) L.answerSession(S, true);
+assert.strictEqual(S.done, 10); assert.strictEqual(S.missed.length, 1);
+assert(!L.recordAttempt(G, 'u0', S.total, S.missed.length).perfect); assert(!L.isUnlocked(path, 1, G));
+assert(L.recordAttempt(G, 'u0', 10, 0).perfect); assert(L.isUnlocked(path, 1, G)); assert(!L.isUnlocked(path, 2, G));
+L.recordAttempt(G, 'u0', 10, 5); assert(L.isUnlocked(path, 1, G)); assert.strictEqual(G.best.u0, 100); // no relock
+L.recordAttempt(G, 'u1', 10, 0); assert(L.isUnlocked(path, 2, G)); assert(!L.isUnlocked(path, 3, G)); // review gates unit 3
+L.recordAttempt(G, 'r0', 20, 0); assert(L.isUnlocked(path, 3, G));
+const G2 = JSON.parse(JSON.stringify(G)); assert(L.isUnlocked(path, 3, G2) && !L.isUnlocked(path, 4, G2)); // persists via JSON
+// resume: a 384 session survives JSON round trip mid-way
+let F = L.newSession(path[path.length - 1].words.map(L.key)); for (let i = 0; i < 100; i++) L.answerSession(F, i !== 5);
+F = JSON.parse(JSON.stringify(F)); assert.strictEqual(F.done, 99); assert.strictEqual(F.missed.length, 1);
+let n = 0; while (!L.answerSession(F, true)) n++;
+assert.strictEqual(F.done, 384); assert.strictEqual(new Set(F.seen).size, 384); assert.strictEqual(F.missed.length, 1);
 const rt = L.quizTypes(20, true); assert(rt.filter(x => x === 'word2def').length === 10 && rt.filter(x => x === 'def2word').length === 10);
 console.log('all tests passed');

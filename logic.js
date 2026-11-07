@@ -59,14 +59,37 @@ function choices(word, all, n = 4, rnd = Math.random) {
 
 // Question types for a session. Intro (unit learn) quizzes alternate the two
 // multiple-choice directions so both appear; other sessions also mix in typed recall.
-// Learning path: a review block after every two units (Review 1–2, Review 3–4, ...).
+// Learning path: Unit, Unit, Review (pair); after every 6 units a 60-word Big Test; Final Test after the last unit.
 function makePath(units) {
   const path = [];
   units.forEach((u, i) => {
-    path.push({ type: 'unit', i, words: u });
-    if (i % 2 === 1) path.push({ type: 'review', a: i - 1, b: i, words: units[i - 1].concat(u) });
+    path.push({ type: 'unit', id: 'u' + i, i, words: u });
+    if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: i - 1, b: i, words: units[i - 1].concat(u) });
+    if (i % 6 === 5) path.push({ type: 'big', id: 'b' + (i + 1) / 6, n: (i + 1) / 6, from: i - 5, to: i, words: units.slice(i - 5, i + 1).flat() });
   });
+  path.push({ type: 'final', id: 'final', words: units.flat() });
   return path;
+}
+// Gate: stage n is open only when the stage before it was passed with 100% first-try accuracy.
+// Passing is permanent (later mistakes never relock).
+function newGate() { return { passed: {}, best: {}, resume: {} }; }
+function isUnlocked(path, idx, gate) { return idx === 0 || !!(gate.passed[path[idx - 1].id]); }
+function recordAttempt(gate, id, total, firstTryMisses, now = Date.now()) {
+  const pct = total ? Math.round((total - firstTryMisses) / total * 100) : 0;
+  gate.best[id] = Math.max(gate.best[id] || 0, pct);
+  const perfect = total > 0 && firstTryMisses === 0;
+  if (perfect && !gate.passed[id]) gate.passed[id] = now;
+  return { pct, perfect };
+}
+// Quiz session (serializable for pause/resume). First answer per word is what counts; misses retry later.
+function newSession(keys, rnd = Math.random) {
+  return { queue: shuffle(keys, rnd).map(k => ({ k, retry: false })), total: keys.length, done: 0, qi: 0, missed: [], seen: [] };
+}
+function answerSession(s, correct) {
+  const { k } = s.queue.shift(); s.qi++;
+  if (!s.seen.includes(k)) { s.seen.push(k); if (!correct) s.missed.push(k); }
+  if (correct) s.done++; else s.queue.splice(Math.min(3, s.queue.length), 0, { k, retry: true });
+  return s.queue.length === 0;
 }
 function quizTypes(n, intro, rnd = Math.random) {
   const off = Math.floor(rnd() * 2);
@@ -80,5 +103,5 @@ function importData(text) {
     if (typeof p.stage !== 'number' || typeof p.due !== 'number') throw new Error('Bad entry: ' + k);
   return o.progress;
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
