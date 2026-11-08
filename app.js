@@ -20,7 +20,6 @@ document.addEventListener('visibilitychange', () => document.visibilityState ===
 const dailyStage = () => { const ws = gate.daily.words.map(k => BYKEY[k]).filter(Boolean); return { type: 'daily', id: 'daily', day: gate.daily.day, words: ws, pool: ws }; };
 const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Cumulative Review: Units 1–${it.b + 1}` : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fmt = t => { const d = Math.round((t - Date.now()) / L.DAY); return d <= 0 ? 'now' : d === 1 ? 'tomorrow' : `in ${d} days`; };
 $('#home').onclick = e => { e.preventDefault(); home(); };
 
 // Tell long-open tabs when a newer version has been published.
@@ -79,11 +78,10 @@ function dailyView() {
 function home() {
   onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
   const due = L.dueWords(prog, WORDS), learned = WORDS.filter(w => !L.isNew(prog, w)).length, weak = L.weakWords(prog, WORDS);
-  const next = Object.values(prog).map(p => p.due).filter(d => d > Date.now()).sort((a, b) => a - b)[0];
   app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="stats">
-   <div class="stat"><b>${due.length}</b>reviews due</div><div class="stat"><b>${learned}</b>of 384 started</div>
-   <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${next ? fmt(next) : '—'}</b>next review</div></div>
-   <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Review due words (${Math.min(due.length, 30)})</button>
+   <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div>
+   <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${due.length}</b>words for extra practice</div></div>
+   <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Extra practice (${Math.min(due.length, 30)} words, optional)</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
    <h2>Your path</h2><p class="muted">Units have up to 10 words. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Due reviews and weak words are always open.</p>
@@ -98,7 +96,7 @@ function home() {
    }).join('')}</div>`;
   wireTabs();
   if ($('#upd')) $('#upd').onclick = () => location.reload();
-  $('#rev').onclick = () => quiz(due.slice(0, 30), 'Due review');
+  $('#rev').onclick = () => quiz(due.slice(0, 30), 'Extra practice');
   $('#weak').onclick = () => quiz(weak, 'Weak words');
   $('#data').onclick = backup;
   const guard = f => b => b.onclick = () => { const idx = +Object.values(b.dataset)[0]; if (!L.dailyBlocks(gate) && L.isUnlocked(PATH, idx, gate)) f(PATH[idx], idx); };
@@ -116,8 +114,8 @@ function startStage(it, idx) {
 }
 
 function list(i) {
-  app.innerHTML = `<section class="card"><h2>Unit ${i + 1} words</h2><table><tr><th>Word</th><th>Meaning</th><th>Next review</th></tr>${UNITS[i].map(w => {
-    const p = prog[L.key(w)]; return `<tr><td><b>${esc(w.w)}</b> <span class="pos">${w.p}</span></td><td>${esc(w.d)}</td><td>${p ? fmt(p.due) : 'new'}</td></tr>`;
+  app.innerHTML = `<section class="card"><h2>Unit ${i + 1} words</h2><table><tr><th>Word</th><th>Meaning</th><th>Status</th></tr>${UNITS[i].map(w => {
+    const p = prog[L.key(w)]; return `<tr><td><b>${esc(w.w)}</b> <span class="pos">${w.p}</span></td><td>${esc(w.d)}</td><td>${p ? 'In your Daily Review' : 'Not learned yet'}</td></tr>`;
   }).join('')}</table><p><button id="b">Back</button></p></section>`; $('#b').onclick = home;
 }
 

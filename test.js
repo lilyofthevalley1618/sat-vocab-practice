@@ -215,4 +215,7 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
     }
   }
 }
+// No future review dates/countdowns shown anywhere in the UI
+{ const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
+  assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }
 console.log('all tests passed');
