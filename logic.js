@@ -118,15 +118,20 @@ function explainWrong(type, target, chosen, typed, allWords) {
   }
   return T;
 }
+const DING_PARTIALS = [[1568, 0.09], [3136, 0.025], [4704, 0.01]]; // Hz, peak gain
 // Short soft "ding" via Web Audio. Never throws; returns true if a sound was scheduled.
 function playDing(enabled, getCtx) {
   if (!enabled) return false;
   try {
     const ctx = getCtx && getCtx(); if (!ctx) return false;
     if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(() => {});
-    const t = ctx.currentTime, g = ctx.createGain(); g.connect(ctx.destination);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-    for (const [f, d] of [[880, 0], [1320, 0.0]]) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t + d); o.connect(g); o.start(t + d); o.stop(t + 0.62); }
+    // Light bell: G6 fundamental + soft upper partials, 5 ms attack, ~0.4 s decay.
+    const t = ctx.currentTime, END = 0.4;
+    for (const [f, peak] of DING_PARTIALS) {
+      const g = ctx.createGain(); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + END);
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.connect(g); o.start(t); o.stop(t + END + 0.02);
+    }
     return true;
   } catch (e) { return false; }
 }
@@ -202,5 +207,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, markExample, escHtml };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, markExample, escHtml };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

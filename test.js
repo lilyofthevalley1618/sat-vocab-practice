@@ -162,8 +162,8 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   const same = { w: 'Zz', d: tgt.d }; assert(L.explainWrong('word2def', tgt, same, null, W).includes('also fits'));
   // ding: only when enabled; graceful without audio
   let started = 0; const fake = () => ({ state: 'running', currentTime: 0, destination: {}, createGain: () => ({ connect() {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } }), createOscillator: () => ({ type: '', frequency: { setValueAtTime() {} }, connect() {}, start() { started++; }, stop() {} }) });
-  assert.strictEqual(L.playDing(true, fake), true); assert.strictEqual(started, 2);
-  assert.strictEqual(L.playDing(false, fake), false); assert.strictEqual(started, 2);
+  assert.strictEqual(L.playDing(true, fake), true); assert.strictEqual(started, 3);
+  assert.strictEqual(L.playDing(false, fake), false); assert.strictEqual(started, 3);
   assert.strictEqual(L.playDing(true, () => null), false); assert.strictEqual(L.playDing(true, () => { throw new Error('blocked'); }), false);
 }
 // Example sentences: every word has a full original sentence that uses the word
