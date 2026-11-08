@@ -7,6 +7,12 @@ const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEnt
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
 let onHome = false;
+// Sound: on by default, saved locally. AudioContext is created lazily on the first answer click.
+const SNDKEY = 'satVocabSound.v1'; let soundOn = localStorage.getItem(SNDKEY) !== 'off'; let actx = null;
+const getCtx = () => { if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; actx = new C(); } return actx; };
+const ding = () => L.playDing(soundOn, getCtx);
+const soundBtn = () => `<button class="ghost" id="snd" aria-pressed="${soundOn}" title="Play a ding on correct answers">Sound: ${soundOn ? 'On' : 'Off'}</button>`;
+document.addEventListener('click', e => { if (e.target && e.target.id === 'snd') { soundOn = !soundOn; localStorage.setItem(SNDKEY, soundOn ? 'on' : 'off'); e.target.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); e.target.setAttribute('aria-pressed', soundOn); } });
 const RKEY = 'satGrammar.v1'; let gram = JSON.parse(localStorage.getItem(RKEY) || '{}'); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
 const dayCheck = () => { if (L.ensureDaily(gate, prog)) { saveGate(); if (onHome) home(); } };  // re-renders the Path tab on a new day
 dayCheck(); setInterval(dayCheck, 60000);
@@ -22,7 +28,7 @@ const VERSION = document.querySelector('meta[name=app-version]').content;
 let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
 const startDaily = () => { dayCheck(); const st = dailyStage(); if (!gate.daily.passed && (st.words.length || gate.resume.daily)) quiz(st.words, 'Daily Review', true, st.words, st); else dailyView(); };
-const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button></nav>`;
+const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
 const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
 // Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
 function grammarView() {
@@ -54,7 +60,7 @@ function gramQuiz(i, list, scored) {
       <div class="opts">${q.o.map((o, k) => `<button data-k="${k}">${esc(o)}</button>`).join('')}</div><div id="fb"></div></section>`;
     wireTabs();
     app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
-      const k = +b.dataset.k, ok = k === q.a; if (ok) right++; else missed.push(list[n]);
+      const k = +b.dataset.k, ok = k === q.a; if (ok) { right++; ding(); } else missed.push(list[n]);
       b.classList.add(ok ? 'ok' : 'no'); app.querySelectorAll('.opts button')[q.a].classList.add('ok'); app.querySelectorAll('.opts button').forEach(x => x.disabled = true);
       $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'} ${esc(q.why)}<p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       $('#go').focus(); $('#go').onclick = () => { n++; show(); };
@@ -169,21 +175,23 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>` : `<div class="word">${esc(w.w)}</div>`}
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
     app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
-      <button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div>${body}<div id="fb"></div></section>`;
+      <div class="row">${soundBtn()}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
     $('#pause').onclick = home;
-    const answer = ok => {
+    let answered = false;
+    const answer = (ok, chosen, typed) => {
+      if (answered) return; answered = true; if (ok) ding();
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
       L.answerSession(s, ok); persist();
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite — this one will come back shortly.'} <b>${esc(w.w)}</b>: ${esc(w.d)}${w.e ? `<br><span class="ex">“${esc(w.e)}”</span>` : ''}
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${w.e ? `<br><span class="ex">“${esc(w.e)}”</span>` : ''}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
       $('#go').focus(); $('#go').onclick = next;
     };
     if (type === 'type') { $('#ti').focus(); $('#hint').onclick = () => { $('#ti').value = w.w[0]; $('#ti').focus(); };
-      $('#tf').onsubmit = e => { e.preventDefault(); answer(L.checkTyped($('#ti').value, w)); }; }
+      $('#tf').onsubmit = e => { e.preventDefault(); const v = $('#ti').value; answer(L.checkTyped(v, w), null, v); }; }
     else app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
       const ok = opts[+b.dataset.i] === w; b.classList.add(ok ? 'ok' : 'no');
-      app.querySelectorAll('.opts button')[opts.indexOf(w)].classList.add('ok'); answer(ok); });
+      app.querySelectorAll('.opts button')[opts.indexOf(w)].classList.add('ok'); answer(ok, opts[+b.dataset.i]); });
   };
   next();
 }

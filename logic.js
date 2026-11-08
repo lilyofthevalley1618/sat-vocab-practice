@@ -97,6 +97,39 @@ function validResume(s, words) {
 // answered right on the first try (one full clean run) before the path can continue.
 // Grammar practice: best first-try score per topic; never lowered.
 function recordGrammar(g, id, total, right) { const pct = Math.round(right / total * 100), p = g[id] || { best: 0, tries: 0 }; p.tries++; p.best = Math.max(p.best, pct); g[id] = p; return pct; }
+// Wrong-answer explanation built only from the question's own word/definition data.
+// Returns plain text pieces; the UI escapes them.
+function explainWrong(type, target, chosen, typed, allWords) {
+  const T = `"${target.w}" means: ${target.d}.`;
+  if (type === 'word2def' && chosen) {
+    if (chosen.d.toLowerCase() === target.d.toLowerCase()) return `That definition also fits "${target.w}". ${T}`;
+    return `The definition you picked ("${chosen.d}") is the meaning of "${chosen.w}", not "${target.w}". ${T}`;
+  }
+  if (type === 'def2word' && chosen) {
+    if (chosen.d.toLowerCase() === target.d.toLowerCase()) return `"${chosen.w}" has the same listed definition. The expected answer was "${target.w}".`;
+    return `You picked "${chosen.w}", which means: ${chosen.d}. The definition shown ("${target.d}") belongs to "${target.w}".`;
+  }
+  if (type === 'type') {
+    const n = normalize(typed || '');
+    if (!n) return `No answer was entered. The word is "${target.w}". ${T}`;
+    const known = (allWords || []).find(w => normalize(w.w) === n);
+    if (known) return `You typed "${known.w}", which means: ${known.d}. The word for this definition is "${target.w}".`;
+    return `"${typed.trim()}" isn't the word for this definition (spelling counts). The answer is "${target.w}". ${T}`;
+  }
+  return T;
+}
+// Short soft "ding" via Web Audio. Never throws; returns true if a sound was scheduled.
+function playDing(enabled, getCtx) {
+  if (!enabled) return false;
+  try {
+    const ctx = getCtx && getCtx(); if (!ctx) return false;
+    if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(() => {});
+    const t = ctx.currentTime, g = ctx.createGain(); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    for (const [f, d] of [[880, 0], [1320, 0.0]]) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t + d); o.connect(g); o.start(t + d); o.stop(t + 0.62); }
+    return true;
+  } catch (e) { return false; }
+}
 function laDay(now = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
 }
@@ -163,5 +196,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

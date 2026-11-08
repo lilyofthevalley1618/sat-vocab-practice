@@ -148,4 +148,22 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   const dw = L.withWeak(DG2.daily.words.map(k => BYK[k]), DPp, W); assert.deepStrictEqual(dw.map(L.key), ['abate', L.key(W[100])]);
   L.recordDaily(DG2, DG2.daily.day, 2, 0); L.grade(DPp, W[101], false, D1); L.ensureDaily(DG2, DPp, D1 + 1000); assert(!L.dailyBlocks(DG2));
 }
+// Wrong-answer explanations and ding
+{ const BYK = Object.fromEntries(W.map(w => [L.key(w), w])), u = path.find(x => x.id === 'u1');
+  const tgt = BYK.adapt, q1 = L.buildQuestion(u, 'adapt', 0, BYK), wrong1 = q1.options.find(o => o !== tgt);
+  assert.strictEqual(q1.type, 'word2def');
+  const e1 = L.explainWrong('word2def', tgt, wrong1, null, W);
+  assert(e1.includes(wrong1.d) && e1.includes(`"${wrong1.w}"`) && e1.includes(tgt.d), e1);
+  const q2 = L.buildQuestion(u, 'adapt', 1, BYK), wrong2 = q2.options.find(o => o !== tgt); assert.strictEqual(q2.type, 'def2word');
+  const e2 = L.explainWrong('def2word', tgt, wrong2, null, W); assert(e2.includes(`"${wrong2.w}"`) && e2.includes(wrong2.d) && e2.includes(`belongs to "Adapt"`), e2);
+  assert(L.explainWrong('type', tgt, null, ' Abate ', W).includes('You typed "Abate", which means: ' + BYK.abate.d));
+  assert(L.explainWrong('type', tgt, null, 'adaptt', W).includes('spelling counts'));
+  assert(L.explainWrong('type', tgt, null, '', W).startsWith('No answer'));
+  const same = { w: 'Zz', d: tgt.d }; assert(L.explainWrong('word2def', tgt, same, null, W).includes('also fits'));
+  // ding: only when enabled; graceful without audio
+  let started = 0; const fake = () => ({ state: 'running', currentTime: 0, destination: {}, createGain: () => ({ connect() {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } }), createOscillator: () => ({ type: '', frequency: { setValueAtTime() {} }, connect() {}, start() { started++; }, stop() {} }) });
+  assert.strictEqual(L.playDing(true, fake), true); assert.strictEqual(started, 2);
+  assert.strictEqual(L.playDing(false, fake), false); assert.strictEqual(started, 2);
+  assert.strictEqual(L.playDing(true, () => null), false); assert.strictEqual(L.playDing(true, () => { throw new Error('blocked'); }), false);
+}
 console.log('all tests passed');
