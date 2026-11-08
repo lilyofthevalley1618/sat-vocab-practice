@@ -130,6 +130,12 @@ function playDing(enabled, getCtx) {
     return true;
   } catch (e) { return false; }
 }
+// HTML-escape an example sentence and wrap the vocab word (and its endings, e.g. "abated") in <mark>.
+function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function markExample(e, word) {
+  const stem = word.w.toLowerCase().replace(/[^a-z]/g, '');
+  return escHtml(e).replace(new RegExp('\\b(' + stem + '[a-z]*)', 'gi'), '<mark>$1</mark>');
+}
 function laDay(now = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
 }
@@ -196,5 +202,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, markExample, escHtml };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

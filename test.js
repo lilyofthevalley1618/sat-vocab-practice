@@ -166,4 +166,15 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   assert.strictEqual(L.playDing(false, fake), false); assert.strictEqual(started, 2);
   assert.strictEqual(L.playDing(true, () => null), false); assert.strictEqual(L.playDing(true, () => { throw new Error('blocked'); }), false);
 }
+// Example sentences: every word has a full original sentence that uses the word
+{ const seenE = new Set();
+  for (const w of W) {
+    assert(w.e && /^[A-Z"“]/.test(w.e) && /[.!?]$/.test(w.e) && w.e.split(' ').length >= 6, 'bad example: ' + w.w);
+    assert(new RegExp('\\b' + w.w.toLowerCase()).test(w.e.toLowerCase()), 'word not used: ' + w.w);
+    assert(!/(the word|\bdefinition\b)/i.test(w.e), 'metalinguistic: ' + w.w); assert(!seenE.has(w.e)); seenE.add(w.e);
+    const m = L.markExample(w.e, w); assert(/<mark>[^<]+<\/mark>/.test(m), 'no highlight: ' + w.w);
+    assert(m.replace(/<\/?mark>/g, '').indexOf('<') === -1);
+  }
+  assert.strictEqual(L.markExample('A <b>& abate', { w: 'Abate' }), 'A &lt;b&gt;&amp; <mark>abate</mark>');
+}
 console.log('all tests passed');

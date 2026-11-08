@@ -127,7 +127,7 @@ function flash(words, title, then, graded = true) {
     if (n >= words.length) return then ? then() : done(title, words.length, again);
     const w = words[n];
     app.innerHTML = `<section class="card"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p>
-     <div class="flash card" id="fc" tabindex="0" role="button" aria-label="Flip card">${flipped || !graded ? `<div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span><p>${esc(w.d)}</p>${w.e ? `<p class="ex">“${esc(w.e)}”</p>` : ''}` : `<div class="word">${esc(w.w)}</div><p class="muted">Think of the meaning, then tap to flip</p>`}</div>
+     <div class="flash card" id="fc" tabindex="0" role="button" aria-label="Flip card">${flipped || !graded ? `<div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span><p>${esc(w.d)}</p>${w.e ? `<p class="ex">“${L.markExample(w.e, w)}”</p>` : ''}` : `<div class="word">${esc(w.w)}</div><p class="muted">Think of the meaning, then tap to flip</p>`}</div>
      <div class="row">${graded ? (flipped ? `<button class="alt" id="y">I knew it</button><button id="n">Not yet</button>` : `<button id="fl">Flip</button>`) : `<button id="nx">Next</button>`}<button class="ghost" id="q">Exit</button></div></section>`;
     const flip = () => { if (graded) { flipped = true; show(); } };
     $('#fc').onclick = flip; $('#fc').onkeydown = e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), flip());
@@ -182,7 +182,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       if (answered) return; answered = true; if (ok) ding();
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
       L.answerSession(s, ok); persist();
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${w.e ? `<br><span class="ex">“${esc(w.e)}”</span>` : ''}
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : ''}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
       $('#go').focus(); $('#go').onclick = next;

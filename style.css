@@ -24,3 +24,4 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}td,th{padding:.35rem;
 .muted{color:var(--muted)}h2{margin:.2rem 0 .7rem;font-size:1.25rem}
 .unit.review{border-color:var(--sage-d);background:#f4f5ee}
 .unit.big,.unit.final{border-color:var(--blue-d);background:#eef4fa}.unit.locked{opacity:.55}
+mark{background:#dfeaf5;color:inherit;border-radius:4px;padding:0 .15em;font-weight:600}
