@@ -166,16 +166,14 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   assert.strictEqual(L.playDing(false, fake), false); assert.strictEqual(started, 3);
   assert.strictEqual(L.playDing(true, () => null), false); assert.strictEqual(L.playDing(true, () => { throw new Error('blocked'); }), false);
 }
-// Example sentences: every word has a full original sentence that uses the word
-{ const seenE = new Set();
-  for (const w of W) {
-    assert(w.e && /^[A-Z"“]/.test(w.e) && /[.!?]$/.test(w.e) && w.e.split(' ').length >= 6, 'bad example: ' + w.w);
-    assert(new RegExp('\\b' + w.w.toLowerCase()).test(w.e.toLowerCase()), 'word not used: ' + w.w);
-    assert(!/(the word|\bdefinition\b)/i.test(w.e), 'metalinguistic: ' + w.w); assert(!seenE.has(w.e)); seenE.add(w.e);
-    const m = L.markExample(w.e, w); assert(/<mark>[^<]+<\/mark>/.test(m), 'no highlight: ' + w.w);
-    assert(m.replace(/<\/?mark>/g, '').indexOf('<') === -1);
-  }
-  assert.strictEqual(L.markExample('A <b>& abate', { w: 'Abate' }), 'A &lt;b&gt;&amp; <mark>abate</mark>');
+// Example sentences: exactly the PrepScholar examples
+{ const SRC = require('./source-prepscholar.json'); let ok = 0, marked = 0;
+  for (const w of W) { assert.strictEqual(w.e, SRC[w.w.toLowerCase()].e, w.w); ok++;
+    const m = L.markExample(w.e, w); if (/<mark>/.test(m)) marked++; assert(m.replace(/<\/?mark>|<br>/g, '').indexOf('<') === -1); }
+  assert.strictEqual(ok, 384); assert.strictEqual(marked, 384);
+  assert.strictEqual(SRC.austere.e.split('\n').length, 3); assert.strictEqual(SRC.austere.d.split('\n').length, 3);
+  assert(SRC.interpret.e.includes('for met?')); assert(SRC.permanent.e.includes(' ot get'));
+  assert.strictEqual(L.markExample('A <b>& abated', { w: 'Abate' }), 'A &lt;b&gt;&amp; <mark>abated</mark>');
 }
 // First 40 words (Units 1–4): runtime quiz audit over many seeds
 { const BYK = Object.fromEntries(W.map(w => [L.key(w), w])), first40 = new Set(W.slice(0, 40).map(L.key));
@@ -202,7 +200,7 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   let exact = 0;
   for (const w of W) {
     const src = SRC[w.w.toLowerCase()]; assert(src, 'no source for ' + w.w);
-    const rebuilt = w.senses.map(s => w.p + '. ' + s).join('\n'); assert.strictEqual(rebuilt, src, w.w);
+    const rebuilt = w.senses.map(s => w.p + '. ' + s).join('\n'); assert.strictEqual(rebuilt, src.d, w.w);
     assert.strictEqual(w.d, w.senses.join('; ')); exact++;
   }
   assert.strictEqual(exact, 384);

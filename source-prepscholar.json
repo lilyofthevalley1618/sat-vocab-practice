@@ -1,386 +1,1538 @@
 {
-"abate": "v. to become less active, less intense, or less in amount",
-"abrupt": "adj. Sudden and unexpected.",
-"abstract": "adj. existing purely in the mind; not representing actual reality",
-"abysmal": "adj. extremely bad",
-"acceptable": "adj. Satisfactory or permissible.",
-"accidental": "adj. Happening by chance.",
-"accommodate": "v. To provide space or make adjustments.",
-"accuracy": "n. The quality of being correct or precise.",
-"acknowledge": "v. To recognize or admit the truth.",
-"acquired": "adj. Gained through effort or experience.",
-"adapt": "v. To adjust to new conditions.",
-"adept": "adj. having knowledge or skill (usu. in a particular area)",
-"adequate": "adj. having sufficient qualifications to meet a specific task or purpose",
-"adhere": "v. To stick to or follow closely.",
-"adjust": "v. To modify or change slightly.",
-"admire": "v. To respect or look up to.",
-"advantageous": "adj. Beneficial or useful.",
-"advent": "n. the arrival or creation of something",
-"advise": "v. To recommend or give guidance.",
-"aggravate": "v. To worsen or intensify.",
-"aggressive": "adj. Forceful or overly assertive.",
-"allude": "v. to make a secretive mention of something",
-"ambiguity": "n. Uncertainty or multiple interpretations.",
-"ambivalence": "n. Mixed or conflicting feelings.",
-"ameliorate": "v. To improve or make better.",
-"amplify": "v. To increase in size or effect.",
-"amusing": "adj. Entertaining or humorous.",
-"analogous": "adj. similar but not identical",
-"annotate": "v. To add notes or comments.",
-"announce": "v. To make a public statement.",
-"anomaly": "n. something different from the norm",
-"antagonistic": "adj. Showing hostility or opposition.",
-"antecedent": "n. A preceding event or condition.",
-"anticipate": "v. To expect or predict.",
-"antipathy": "n. a strong feeling of dislike",
-"apex": "n. the highest point of something",
-"appropriate": "adj. Suitable for a specific situation.",
-"approximate": "adj. Nearly accurate or close to.",
-"arcane": "adj. Mysterious or known by few.",
-"arduous": "adj. Difficult and requiring effort.",
-"assemble": "v. To gather or put together.",
-"austere": "adj. extremely plain\nadj. stern and forbidding\nadj. relating to self-denial",
-"avoid": "v. To stay away from or prevent.",
-"beneficial": "adj. Producing good results.",
-"benevolent": "adj. kind, generous",
-"bold": "adj. Courageous or striking.",
-"borrow": "v. To take temporarily.",
-"buttress": "v. To support or strengthen.",
-"bypass": "v. To go around or avoid.",
-"calibrate": "v. To adjust for precision.",
-"candid": "adj. direct, blunt",
-"carelessly": "adv. Without caution.",
-"catastrophic": "adj. Disastrous or causing great damage.",
-"cause": "n. A reason for an action or event.",
-"characterization": "n. The way a character is described.",
-"circumvent": "v. To find a way around.",
-"coincidence": "n. A surprising and unexpected event.",
-"collaboration": "n. Working together on a task.",
-"commercialization": "n. The process of making something a business.",
-"committed": "adj. Dedicated to a cause or task.",
-"common": "adj. Occurring frequently or shared.",
-"compelling": "adj. Captivating or persuasive.",
-"competent": "adj. Having the necessary ability or skill.",
-"complementary": "adj. Enhancing or completing another.",
-"complexity": "n. The state of being intricate or complicated.",
-"compose": "v. To create or write.",
-"compound": "v. To intensify or combine.",
-"comprise": "v. To consist of or include.",
-"conceal": "v. To hide or keep secret.",
-"concede": "v. To admit or yield.",
-"conceptualize": "v. To form an idea or concept.",
-"concerning": "adj. Causing worry or distress.",
-"condition": "n. The state of something.",
-"confident": "adj. Feeling sure or self-assured.",
-"conflated": "adj. Combined in a misleading way.",
-"conform": "v. To comply with rules or expectations.",
-"consensus": "n. General agreement.",
-"consistent": "adj. Acting in the same way over time.",
-"conspicuous": "adj. Easily noticed or standing out.",
-"constant": "adj. Occurring continuously.",
-"contentious": "adj. Causing disagreement or debate.",
-"contingent": "adj. Dependent on something else.",
-"contradict": "v. to be in contrast with",
-"contrived": "adj. Artificial or overly planned.",
-"controversial": "adj. Causing public disagreement.",
-"cordially": "adv. In a warm or friendly manner.",
-"corroborate": "v. to provide evidence for; to back up (a claim)",
-"corrosive": "adj. Gradually destructive or harmful",
-"costly": "adj. Expensive or requiring sacrifice.",
-"counteract": "v. to work in opposition to",
-"critical": "adj. Expressing analysis or judgment.",
-"criticize": "v. To express disapproval.",
-"deceptive": "adj. Misleading or dishonest.",
-"deciding": "adj. Determining or influencing an outcome.",
-"decisive": "adj. Conclusive or firm.",
-"deficient": "adj. not enough in degree or amount",
-"defunct": "adj. No longer existing or functional.",
-"delegate": "v. To assign tasks or authority to others.",
-"deliberation": "n. Careful consideration or discussion.",
-"delicate": "adj. Fragile or requiring careful handling.",
-"demarcate": "v. To set boundaries or distinguish.",
-"derived": "adj. Obtained or developed from a source.",
-"despise": "v. To strongly dislike or look down upon.",
-"desultory": "adj. Lacking a clear plan or enthusiasm.",
-"determine": "v. To establish or decide.",
-"deviate": "v. To move away from a set path or norm.",
-"devise": "v. to come up with (a plan)",
-"diminish": "v. To decrease in size or importance.",
-"directed": "adj. Managed or guided.",
-"disagreement": "n. A difference of opinion.",
-"disastrous": "adj. Causing great harm or failure.",
-"disconcerting": "adj. Causing discomfort or confusion.",
-"discord": "n. disagreement",
-"discount": "v. To disregard or reduce in value.",
-"discourage": "v. To dissuade or deter.",
-"discretion": "n. The ability to make responsible choices.",
-"disengage": "v. To separate or withdraw.",
-"dismiss": "v. To reject or send away.",
-"disorienting": "adj. Causing confusion or loss of direction.",
-"disparage": "v. To belittle or speak negatively about.",
-"disparate": "adj. Essentially different or unconnected.",
-"dispute": "n. A disagreement or argument.",
-"distinct": "adj. Clearly different or separate.",
-"distract": "v. To divert attention.",
-"distressed": "adj. Suffering from anxiety or pain.",
-"diverge": "v. To move apart or differ.",
-"diverse": "adj. Showing variety or differences.",
-"dominance": "n. The state of being in control or superior.",
-"dormant": "adj. Inactive but capable of becoming active.",
-"dynamic": "adj. Constantly changing or energetic.",
-"earnest": "adj. Serious and sincere.",
-"eclipse": "v. To overshadow or surpass.",
-"eloquent": "adj. having refined or expressive communication skills (in speaking or writing)",
-"elusive": "adj. Hard to find or understand.",
-"encompass": "v. To include or surround.",
-"encounter": "v. To meet or face unexpectedly.",
-"encourage": "v. To support or inspire.",
-"enduring": "adj. Lasting over time.",
-"evidence": "n. Information that supports a conclusion.",
-"evoke": "v. to draw forth or call up",
-"exacerbate": "v. To make a problem worse.",
-"exactitude": "n. The quality of being precise or accurate.",
-"exaggerate": "v. To overstate or magnify beyond the truth.",
-"exceed": "v. To go beyond a limit.",
-"exemplify": "v. To serve as a typical example of something.",
-"exhaustive": "adj. Thorough and complete.",
-"expansion": "n. The act of increasing in size or scope.",
-"expensive": "adj. Costing a lot of money.",
-"experiment": "n. A test to discover something new.",
-"explicable": "adj. Able to be explained.",
-"exploit": "v. To take advantage of something unfairly.",
-"extensive": "adj. Covering a large area or scope.",
-"extraneous": "adj. Unrelated or unnecessary.",
-"fabricate": "v. To invent or create, often dishonestly.",
-"foretell": "v. To predict or anticipate.",
-"foster": "v. To encourage or promote development.",
-"fragile": "adj. Easily broken or delicate.",
-"fruitless": "adj. Failing to achieve desired results.",
-"genuine": "adj. Authentic or real.",
-"grapple": "v. To struggle or wrestle with something.",
-"habitual": "adj. Done regularly or repeatedly.",
-"haphazard": "adj. Lacking organization or planning.",
-"hibernation": "n. A state of dormancy or deep sleep.",
-"highlight": "v. To emphasize or make noticeable.",
-"hinder": "v. To obstruct or slow progress.",
-"hoard": "v. To accumulate and store excessively.",
-"homogeneous": "adj. Uniform or similar throughout.",
-"hypothesize": "v. To form a theory or assumption.",
-"imaginative": "adj. Creative and full of new ideas.",
-"imitation": "n. A copy or replica of something.",
-"imminent": "adj. About to happen soon.",
-"immune": "adj. Resistant to disease or harm.",
-"impartial": "adj. Fair and not biased.",
-"impending": "adj. Approaching or about to happen.",
-"impenetrable": "adj. Impossible to pass through.",
-"imperceptible": "adj. Very slight or difficult to notice.",
-"implement": "v. To put into effect or execute.",
-"implication": "n. A possible consequence or meaning.",
-"implicit": "adj. Implied rather than stated directly.",
-"impractical": "adj. Not sensible or realistic.",
-"improvise": "v. To create or perform spontaneously.",
-"inactive": "adj. Not engaged in movement or activity.",
-"inadequate": "adj. Insufficient or lacking.",
-"inadvertently": "adv. Unintentionally or by accident.",
-"incite": "v. to encourage or stir up",
-"inconspicuous": "adj. Not being easily seen or noticed.",
-"indecipherable": "adj. Impossible to understand or read.",
-"indicate": "v. To point out or show.",
-"indifference": "n. Lack of interest or concern.",
-"indisputable": "adj. Unable to be challenged or denied.",
-"indistinct": "adj. Not clear or sharply defined.",
-"indulge": "v. To allow oneself to enjoy.",
-"ineffectual": "adj. Not producing the desired effect.",
-"inevitable": "adj. Certain to happen; unavoidable.",
-"inexpensive": "adj. Not costly.",
-"inexplicable": "adj. Unable to be explained.",
-"influence": "n. The power to affect others.",
-"infrequent": "adj. Not occurring often.",
-"inhibit": "v. To hinder or restrain.",
-"innocuous": "adj. Harmless or inoffensive.",
-"insensible": "adj. Unaware or indifferent.",
-"insignificant": "adj. Too small or unimportant to matter.",
-"inspect": "v. To examine closely.",
-"inspirational": "adj. Providing motivation or encouragement.",
-"intangible": "adj. Not able to be touched or measured.",
-"intentional": "adj. Done on purpose.",
-"interchangeable": "adj. Able to be substituted for each other.",
-"interject": "v. To insert a comment abruptly.",
-"interpret": "v. To explain the meaning of something.",
-"intersect": "v. To cross or meet at a point.",
-"intricate": "adj. Very detailed or complicated.",
-"intriguing": "adj. Arousing curiosity or interest.",
-"invalidate": "v. To make something void or null.",
-"invent": "v. To create something new.",
-"investigation": "n. Systematic inquiries to uncover facts.",
-"involuntarily": "adv. Done without conscious control.",
-"irrelevant": "adj. Not related or applicable.",
-"isolate": "v. To separate from others.",
-"lacking": "adj. Not having enough of something.",
-"latent": "adj. Present but not active.",
-"legitimate": "adj. Lawful or valid.",
-"localized": "adj. Restricted to a particular area.",
-"manageable": "adj. Able to be controlled or handled.",
-"mandatory": "adj. Required or obligatory.",
-"mimic": "v. To imitate.",
-"misanthropic": "adj. Disliking people or society.",
-"misrepresent": "v. To give a false impression.",
-"moderate": "adj. Not extreme; average.",
-"multifaceted": "adj. Having many aspects or features.",
-"neglect": "v. To fail to care for properly.",
-"neutrality": "n. The state of not taking sides.",
-"newfound": "adj. Recently discovered or developed.",
-"notional": "adj. Existing only in theory.",
-"novel": "adj. New or original.",
-"nuanced": "adj. Having subtle differences.",
-"obligate": "v. To compel or require.",
-"obscure": "adj. Not easily understood or seen.",
-"observable": "adj. Able to be seen or noticed.",
-"observant": "adj. Quick to notice things.",
-"obsolete": "adj. no longer used; rare or uncommon",
-"obstructed": "adj. Blocked or hindered.",
-"occupy": "v. To take up space or time.",
-"oddity": "n. Something unusual or strange.",
-"offhand": "adj. Done without preparation or thought.",
-"omnipotent": "adj. almighty and all powerful",
-"onset": "n. the beginning or early stages",
-"operative": "adj. Functioning or having effect.",
-"ornamental": "adj. Decorative rather than functional.",
-"oust": "v. to remove or force out of (usu. a position or office)",
-"outstrip": "v. To surpass or exceed.",
-"overcome": "v. To succeed in dealing with a problem.",
-"overlook": "v. To fail to notice or consider.",
-"overreact": "v. To respond too strongly.",
-"overshadow": "v. To be more important than something else.",
-"overtly": "adv. Openly and clearly.",
-"overwhelmed": "adj. Feeling excessive stress or emotion.",
-"paramount": "adj. predominant, superior, most important",
-"paucity": "n. A scarcity or lack.",
-"perceive": "v. To become aware of something.",
-"peripheral": "adj. On the edge or outer part of something.",
-"permanent": "adj. Lasting indefinitely.",
-"perpetual": "adj. Continuing forever or indefinitely.",
-"persistent": "adj. Continuing despite difficulty.",
-"popularize": "v. To make widely known.",
-"postulate": "v. To assume or propose a theory.",
-"pragmatic": "adj. Practical and realistic.",
-"praise": "v. To express approval or admiration.",
-"precarious": "adj. Uncertain or unstable.",
-"preclude": "v. To prevent from happening.",
-"predatory": "adj. Exploiting others for personal gain.",
-"predetermined": "adj. Decided in advance.",
-"predict": "v. To say what will happen in the future.",
-"premeditated": "adj. Planned beforehand.",
-"prescribe": "v. To recommend or order a treatment.",
-"preserve": "v. To keep something in its original state.",
-"presume": "v. To assume something to be true.",
-"prevail": "v. To win or be more powerful.",
-"preventable": "adj. Able to be avoided.",
-"probability": "n. Likelihood of something happening.",
-"proclaim": "v. To announce officially.",
-"produce": "v. To create or generate something.",
-"profusion": "n. A large quantity of something.",
-"prolong": "v. To extend in duration.",
-"prominent": "adj. Important or well-known.",
-"proponent": "n. A supporter of a cause or idea.",
-"provoke": "v. To stir up or incite.",
-"prudently": "adv. In a wise or careful manner.",
-"quantity": "n. An amount or number.",
-"quarrel": "n. An angry argument or dispute.",
-"questionable": "adj. Doubtful or uncertain.",
-"ramify": "v. to split into two or more branches",
-"rarely": "adv. Infrequently or seldom.",
-"rationalize": "v. To justify an action with reasoning.",
-"rebellion": "n. An act of resistance against authority.",
-"recalcitrant": "adj. Stubbornly resistant to authority.",
-"recant": "v. To take back a previous statement.",
-"receptive": "adj. Open to new ideas.",
-"reciprocate": "v. To give in return.",
-"recognizable": "adj. Easily identified.",
-"rectify": "v. To correct or fix something.",
-"redefine": "v. To change the meaning of something.",
-"redress": "v. To set right or remedy.",
-"reform": "v. To improve by making changes.",
-"refuse": "v. To decline or reject.",
-"refute": "v. To prove false or incorrect.",
-"regrettable": "adj. Causing sorrow or disappointment.",
-"regulate": "v. To control or manage.",
-"reject": "v. To dismiss or refuse to accept.",
-"relocate": "v. To move to a new place.",
-"renounce": "v. To give up or reject formally.",
-"replenish": "v. To refill or restore.",
-"replicable": "adj. Able to be copied or repeated.",
-"representative": "n. A person acting on behalf of others.",
-"repress": "v. To suppress or hold back.",
-"reprieve": "n. A temporary relief or delay.",
-"repudiate": "v. To reject or disown.",
-"resilient": "adj. Able to recover quickly.",
-"resolve": "v. To find a solution.",
-"responsive": "adj. Reacting quickly or positively.",
-"restore": "v. To bring back to original condition.",
-"restrain": "v. To hold back or limit.",
-"retain": "v. To keep or hold onto.",
-"retaliate": "v. To respond to an attack.",
-"reticent": "adj. Reluctant to share one's thoughts or feelings; reserved",
-"rousing": "adj. Exciting or stirring.",
-"rudimentary": "adj. Basic or simple.",
-"sanction": "v. To authorize or approve.",
-"sanguine": "adj. Optimistic or hopeful.",
-"saturate": "v. To soak or fill completely.",
-"scorn": "v. to look down on with disdain",
-"scrutinize": "v. To examine closely.",
-"secretive": "adj. Keeping things hidden.",
-"sensitive": "adj. Easily affected or aware.",
-"simulate": "v. To imitate or replicate.",
-"sincerity": "n. The quality of being genuine.",
-"skeptical": "adj. Doubtful or questioning.",
-"sophisticated": "adj. Complex or refined.",
-"span": "n. The extent or length of something.",
-"sparingly": "adv. insufficiently, meagerly, or in a restricted manner",
-"speculate": "v. To guess or theorize.",
-"spurious": "adj. False or deceptive.",
-"stark": "adj. Very plain; devoid of any details or features",
-"strenuously": "adv. With great effort.",
-"sturdily": "adv. Strongly or solidly.",
-"stymie": "v. To hinder or block.",
-"substantial": "adj. Large or important.",
-"subtle": "adj. Hard to detect or analyze",
-"succumb": "v. To give in or surrender.",
-"superficial": "adj. Shallow or lacking depth.",
-"supplement": "v. To add to something.",
-"surmise": "v. To infer or guess.",
-"surpass": "v. To exceed or go beyond.",
-"surrender": "v. To give up or yield.",
-"susceptible": "adj. Easily influenced or affected.",
-"synchronization": "n. The process of coordinating events.",
-"tentative": "adj. Uncertain or not fully decided.",
-"tenuous": "adj. Weak or insubstantial.",
-"theoretical": "adj. Based on theory rather than practice.",
-"theory": "n. A system of ideas intended to explain something.",
-"thoughtfulness": "n. Consideration for others.",
-"tranquil": "adj. Peaceful and calm.",
-"transform": "v. To change in form or appearance.",
-"ubiquitous": "adj. Present everywhere.",
-"uncontroversial": "adj. Not likely to cause disagreement.",
-"undeniable": "adj. Cannot be disputed.",
-"underscore": "v. To emphasize.",
-"unimportant": "adj. Not significant.",
-"unintended": "adj. Not planned or meant.",
-"universal": "adj. Common to all.",
-"unmistakable": "adj. Clearly recognizable.",
-"unobtrusive": "adj. Not attracting attention.",
-"unoriginal": "adj. Lacking originality.",
-"unpredictable": "adj. Difficult to foresee.",
-"validate": "v. To confirm the accuracy of something.",
-"variable": "adj. Likely to change.",
-"verisimilitude": "n. The appearance of being true or real.",
-"veritable": "adj. Used to emphasize truth.",
-"vigilance": "n. The action of keeping careful watch.",
-"vital": "adj. Urgently necessary",
-"volatile": "adj. Liable to change rapidly and unpredictably; easily evaporated (in scientific contexts)",
-"waive": "v. To give up a right or claim voluntarily.",
-"warranted": "adj. Justified or necessary.",
-"widespread": "adj. Found or occurring over a large area.",
-"withdraw": "v. To remove or retreat."
+"abate": {
+"d": "v. to become less active, less intense, or less in amount",
+"e": "As I began my speech, my feelings of nervousness quickly abated."
+},
+"abrupt": {
+"d": "adj. Sudden and unexpected.",
+"e": "His abrupt departure surprised everyone."
+},
+"abstract": {
+"d": "adj. existing purely in the mind; not representing actual reality",
+"e": "Julie had trouble understanding the appeal of the abstract painting."
+},
+"abysmal": {
+"d": "adj. extremely bad",
+"e": "I got an abysmal grade on my research paper!"
+},
+"acceptable": {
+"d": "adj. Satisfactory or permissible.",
+"e": "The teacher deemed Sara's late assignment acceptable."
+},
+"accidental": {
+"d": "adj. Happening by chance.",
+"e": "The oil spill was purely accidental."
+},
+"accommodate": {
+"d": "v. To provide space or make adjustments.",
+"e": "The Grand Hotel can accommodate up to 500 guests."
+},
+"accuracy": {
+"d": "n. The quality of being correct or precise.",
+"e": "The accuracy of the intern's report was impressive."
+},
+"acknowledge": {
+"d": "v. To recognize or admit the truth.",
+"e": "She refused to acknowledge her mistake."
+},
+"acquired": {
+"d": "adj. Gained through effort or experience.",
+"e": "Edmund had acquired a taste for fine wine."
+},
+"adapt": {
+"d": "v. To adjust to new conditions.",
+"e": "Newly-released animals generally adapt to their environments over time."
+},
+"adept": {
+"d": "adj. having knowledge or skill (usu. in a particular area)",
+"e": "Beth loves playing the piano, but she’s especially adept at the violin."
+},
+"adequate": {
+"d": "adj. having sufficient qualifications to meet a specific task or purpose",
+"e": "Though his resume was adequate, the company doubted whether he’d be a good fit."
+},
+"adhere": {
+"d": "v. To stick to or follow closely.",
+"e": "You must adhere to the rules if you don't want to get in trouble."
+},
+"adjust": {
+"d": "v. To modify or change slightly.",
+"e": "He had to adjust his seat for comfort."
+},
+"admire": {
+"d": "v. To respect or look up to.",
+"e": "I admire my mother's dedication to her work."
+},
+"advantageous": {
+"d": "adj. Beneficial or useful.",
+"e": "Speaking multiple languages is advantageous."
+},
+"advent": {
+"d": "n. the arrival or creation of something",
+"e": "The world has never been the same since the advent of the light bulb."
+},
+"advise": {
+"d": "v. To recommend or give guidance.",
+"e": "I advise you to study for the exam."
+},
+"aggravate": {
+"d": "v. To worsen or intensify.",
+"e": "Scratching the rash will only aggravate it."
+},
+"aggressive": {
+"d": "adj. Forceful or overly assertive.",
+"e": "The man's aggressive tone made everyone uneasy."
+},
+"allude": {
+"d": "v. to make a secretive mention of something",
+"e": "She alluded to the problem at hand but didn’t say anything more about it."
+},
+"ambiguity": {
+"d": "n. Uncertainty or multiple interpretations.",
+"e": "The ambiguity in his vague statement caused confusion."
+},
+"ambivalence": {
+"d": "n. Mixed or conflicting feelings.",
+"e": "Jessie felt ambivalence about moving to a new city."
+},
+"ameliorate": {
+"d": "v. To improve or make better.",
+"e": "The new policy aims to ameliorate working conditions for all employees."
+},
+"amplify": {
+"d": "v. To increase in size or effect.",
+"e": "The microphone will amplify your voice."
+},
+"amusing": {
+"d": "adj. Entertaining or humorous.",
+"e": "Jason's joke was quite amusing."
+},
+"analogous": {
+"d": "adj. similar but not identical",
+"e": "Green onions are considered analogous to spring onions."
+},
+"annotate": {
+"d": "v. To add notes or comments.",
+"e": "Please annotate the medical text with your observations."
+},
+"announce": {
+"d": "v. To make a public statement.",
+"e": "The CEO will announce the new policy tomorrow."
+},
+"anomaly": {
+"d": "n. something different from the norm",
+"e": "This result is an anomaly and very rarely happens."
+},
+"antagonistic": {
+"d": "adj. Showing hostility or opposition.",
+"e": "His antagonistic behavior created tension at work."
+},
+"antecedent": {
+"d": "n. A preceding event or condition.",
+"e": "The antecedent to the war was political unrest."
+},
+"anticipate": {
+"d": "v. To expect or predict.",
+"e": "Does the weatherman anticipate a rise in temperatures next week?"
+},
+"antipathy": {
+"d": "n. a strong feeling of dislike",
+"e": "Her antipathy toward the professor was obvious: she rolled her eyes whenever he entered the classroom."
+},
+"apex": {
+"d": "n. the highest point of something",
+"e": "The spring play was the apex of our school year."
+},
+"appropriate": {
+"d": "adj. Suitable for a specific situation.",
+"e": "Lily's velvet dress was appropriate for the formal occasion."
+},
+"approximate": {
+"d": "adj. Nearly accurate or close to.",
+"e": "The approximate cost is $50."
+},
+"arcane": {
+"d": "adj. Mysterious or known by few.",
+"e": "The ancient book contained arcane knowledge."
+},
+"arduous": {
+"d": "adj. Difficult and requiring effort.",
+"e": "The steep hike up the mountain was arduous."
+},
+"assemble": {
+"d": "v. To gather or put together.",
+"e": "We need to assemble the bed if we want a place to sleep tonight."
+},
+"austere": {
+"d": "adj. extremely plain\nadj. stern and forbidding\nadj. relating to self-denial",
+"e": "He lived in a small, austere cabin in the middle of the woods.\nMy boss had an austere expression on her face.\nAn austere lifestyle, like that of monks, isn’t for everybody."
+},
+"avoid": {
+"d": "v. To stay away from or prevent.",
+"e": "Mara hates fighting, so she always tries to avoid conflict."
+},
+"beneficial": {
+"d": "adj. Producing good results.",
+"e": "A balanced diet is beneficial to your health."
+},
+"benevolent": {
+"d": "adj. kind, generous",
+"e": "Many cultures believe in benevolent spirits."
+},
+"bold": {
+"d": "adj. Courageous or striking.",
+"e": "Elsie made a bold move by quitting her job."
+},
+"borrow": {
+"d": "v. To take temporarily.",
+"e": "Libraries will let you borrow books for several weeks."
+},
+"buttress": {
+"d": "v. To support or strengthen.",
+"e": "The evidence will buttress his argument."
+},
+"bypass": {
+"d": "v. To go around or avoid.",
+"e": "We took a shortcut to bypass traffic."
+},
+"calibrate": {
+"d": "v. To adjust for precision.",
+"e": "The scientist had to calibrate the instrument to ensure his measurements were accurate."
+},
+"candid": {
+"d": "adj. direct, blunt",
+"e": "Josh is candid about his desire to become an actor."
+},
+"carelessly": {
+"d": "adv. Without caution.",
+"e": "He carelessly left his keys on the bus."
+},
+"catastrophic": {
+"d": "adj. Disastrous or causing great damage.",
+"e": "The catastrophic hurricane destroyed dozens of homes."
+},
+"cause": {
+"d": "n. A reason for an action or event.",
+"e": "The fire's cause is still unknown."
+},
+"characterization": {
+"d": "n. The way a character is described.",
+"e": "The novel's characterization was deep and complex."
+},
+"circumvent": {
+"d": "v. To find a way around.",
+"e": "They found a loophole to circumvent the rule."
+},
+"coincidence": {
+"d": "n. A surprising and unexpected event.",
+"e": "Meeting my neighbor at the airport was a coincidence."
+},
+"collaboration": {
+"d": "n. Working together on a task.",
+"e": "The scientists' collaboration led to a breakthrough."
+},
+"commercialization": {
+"d": "n. The process of making something a business.",
+"e": "The commercialization of the product increased sales."
+},
+"committed": {
+"d": "adj. Dedicated to a cause or task.",
+"e": "Ava is committed to her studies and always wants top grades."
+},
+"common": {
+"d": "adj. Occurring frequently or shared.",
+"e": "It's very common for students to feel stressed before exams."
+},
+"compelling": {
+"d": "adj. Captivating or persuasive.",
+"e": "The debater gave a compelling argument."
+},
+"competent": {
+"d": "adj. Having the necessary ability or skill.",
+"e": "Noah has worked at this job for a long time and is a competent engineer."
+},
+"complementary": {
+"d": "adj. Enhancing or completing another.",
+"e": "The artist and the engineer have skills that are complementary in the project."
+},
+"complexity": {
+"d": "n. The state of being intricate or complicated.",
+"e": "The complexity of the 1,000 piece puzzle made it challenging."
+},
+"compose": {
+"d": "v. To create or write.",
+"e": "Jordan plans to compose a new symphony."
+},
+"compound": {
+"d": "v. To intensify or combine.",
+"e": "The traffic was compounded by bad weather."
+},
+"comprise": {
+"d": "v. To consist of or include.",
+"e": "The book comprises ten chapters."
+},
+"conceal": {
+"d": "v. To hide or keep secret.",
+"e": "Luca tried to conceal his disappointment."
+},
+"concede": {
+"d": "v. To admit or yield.",
+"e": "She conceded that she was wrong during the argument."
+},
+"conceptualize": {
+"d": "v. To form an idea or concept.",
+"e": "In this lab, scientists conceptualize new theories on viruses."
+},
+"concerning": {
+"d": "adj. Causing worry or distress.",
+"e": "The news about the approaching hurricane is quite concerning."
+},
+"condition": {
+"d": "n. The state of something.",
+"e": "The car I bought is in excellent condition."
+},
+"confident": {
+"d": "adj. Feeling sure or self-assured.",
+"e": "Michael Jordan is confident in his abilities as a basketball player."
+},
+"conflated": {
+"d": "adj. Combined in a misleading way.",
+"e": "The two issues were conflated in the argument."
+},
+"conform": {
+"d": "v. To comply with rules or expectations.",
+"e": "The alternative rocker refuses to conform to societal norms."
+},
+"consensus": {
+"d": "n. General agreement.",
+"e": "The team finally reached a consensus on the decision."
+},
+"consistent": {
+"d": "adj. Acting in the same way over time.",
+"e": "My grandmother's knitting is always consistent in quality."
+},
+"conspicuous": {
+"d": "adj. Easily noticed or standing out.",
+"e": "Veronica's red dress was conspicuous in the crowd."
+},
+"constant": {
+"d": "adj. Occurring continuously.",
+"e": "The criminal lived in constant fear that he'd be found out."
+},
+"contentious": {
+"d": "adj. Causing disagreement or debate.",
+"e": "Politics are highly contentious these days."
+},
+"contingent": {
+"d": "adj. Dependent on something else.",
+"e": "Our family ski trip is contingent on the weather."
+},
+"contradict": {
+"d": "v. to be in contrast with",
+"e": "The camera footage contradicts his alibi."
+},
+"contrived": {
+"d": "adj. Artificial or overly planned.",
+"e": "The movie's plot felt contrived and unrealistic."
+},
+"controversial": {
+"d": "adj. Causing public disagreement.",
+"e": "The judge's decision to free the criminal was highly controversial."
+},
+"cordially": {
+"d": "adv. In a warm or friendly manner.",
+"e": "The two old friends greeted each other cordially."
+},
+"corroborate": {
+"d": "v. to provide evidence for; to back up (a claim)",
+"e": "The note signed by her father corroborates her claim that she was absent from class that day."
+},
+"corrosive": {
+"d": "adj. Gradually destructive or harmful",
+"e": "The corrosive chemical has ruined the paint on my car."
+},
+"costly": {
+"d": "adj. Expensive or requiring sacrifice.",
+"e": "The mistake was a costly one and caused the company to go bankrupt."
+},
+"counteract": {
+"d": "v. to work in opposition to",
+"e": "This ingredient seems to counteract the other ones."
+},
+"critical": {
+"d": "adj. Expressing analysis or judgment.",
+"e": "The review was highly critical of the film."
+},
+"criticize": {
+"d": "v. To express disapproval.",
+"e": "My father tends to criticize others harshly."
+},
+"deceptive": {
+"d": "adj. Misleading or dishonest.",
+"e": "The advertisement was deceptive in its claims of weight loss."
+},
+"deciding": {
+"d": "adj. Determining or influencing an outcome.",
+"e": "The final goal was the deciding factor in the match."
+},
+"decisive": {
+"d": "adj. Conclusive or firm.",
+"e": "My boss's decisive leadership helped solve our company's crisis."
+},
+"deficient": {
+"d": "adj. not enough in degree or amount",
+"e": "I feel as though the sources for my paper are deficient."
+},
+"defunct": {
+"d": "adj. No longer existing or functional.",
+"e": "After people stopped using fax machines, the fax company became defunct."
+},
+"delegate": {
+"d": "v. To assign tasks or authority to others.",
+"e": "A good leader knows how to delegate responsibilities."
+},
+"deliberation": {
+"d": "n. Careful consideration or discussion.",
+"e": "After much deliberation, they made their decision."
+},
+"delicate": {
+"d": "adj. Fragile or requiring careful handling.",
+"e": "The delicate glass sculpture broke easily."
+},
+"demarcate": {
+"d": "v. To set boundaries or distinguish.",
+"e": "The Tornio river demarcates the border between Sweden and Finland."
+},
+"derived": {
+"d": "adj. Obtained or developed from a source.",
+"e": "The word \"aqua\" is derived from Latin."
+},
+"despise": {
+"d": "v. To strongly dislike or look down upon.",
+"e": "The judge despises dishonesty."
+},
+"desultory": {
+"d": "adj. Lacking a clear plan or enthusiasm.",
+"e": "The tired boy's desultory efforts did not impress the coach."
+},
+"determine": {
+"d": "v. To establish or decide.",
+"e": "The final exam will determine your grade."
+},
+"deviate": {
+"d": "v. To move away from a set path or norm.",
+"e": "When the new evidence was uncovered the lawyer deviated from the original plan."
+},
+"devise": {
+"d": "v. to come up with (a plan)",
+"e": "Lana devised a plan to make herself famous."
+},
+"diminish": {
+"d": "v. To decrease in size or importance.",
+"e": "The politician's influence has diminished over time."
+},
+"directed": {
+"d": "adj. Managed or guided.",
+"e": "This new film was directed by a renowned artist."
+},
+"disagreement": {
+"d": "n. A difference of opinion.",
+"e": "An intense disagreement arose over the contract terms."
+},
+"disastrous": {
+"d": "adj. Causing great harm or failure.",
+"e": "The earthquake had disastrous consequences for the island."
+},
+"disconcerting": {
+"d": "adj. Causing discomfort or confusion.",
+"e": "My girlfriend's sudden change in behavior is disconcerting."
+},
+"discord": {
+"d": "n. disagreement",
+"e": "Disputes over money caused intense discord in the family."
+},
+"discount": {
+"d": "v. To disregard or reduce in value.",
+"e": "The teacher discounted his students' concerns."
+},
+"discourage": {
+"d": "v. To dissuade or deter.",
+"e": "Luna tried to discourage her brother from moving out of the house."
+},
+"discretion": {
+"d": "n. The ability to make responsible choices.",
+"e": "The detective handled the matter with great discretion."
+},
+"disengage": {
+"d": "v. To separate or withdraw.",
+"e": "I was exhausted, so I tried to disengage from the argument."
+},
+"dismiss": {
+"d": "v. To reject or send away.",
+"e": "The teacher dismissed the idea to end class early."
+},
+"disorienting": {
+"d": "adj. Causing confusion or loss of direction.",
+"e": "The vast corn maze was disorienting."
+},
+"disparage": {
+"d": "v. To belittle or speak negatively about.",
+"e": "The politician disparaged his opponent's ideas on tax cuts."
+},
+"disparate": {
+"d": "adj. Essentially different or unconnected.",
+"e": "Many European countries have disparate Christmas traditions."
+},
+"dispute": {
+"d": "n. A disagreement or argument.",
+"e": "The neighbors had a dispute over the new fence."
+},
+"distinct": {
+"d": "adj. Clearly different or separate.",
+"e": "My twin sons have distinct personalities."
+},
+"distract": {
+"d": "v. To divert attention.",
+"e": "The rattling noise distracted Javi from his work."
+},
+"distressed": {
+"d": "adj. Suffering from anxiety or pain.",
+"e": "The woman looked distressed after the doctor's call."
+},
+"diverge": {
+"d": "v. To move apart or differ.",
+"e": "My parents' opinions on politics began to diverge as they grew older."
+},
+"diverse": {
+"d": "adj. Showing variety or differences.",
+"e": "New York City has a diverse population."
+},
+"dominance": {
+"d": "n. The state of being in control or superior.",
+"e": "The company's dominance in the market is evident."
+},
+"dormant": {
+"d": "adj. Inactive but capable of becoming active.",
+"e": "The volcano beneath Mount Fuji has been dormant for centuries."
+},
+"dynamic": {
+"d": "adj. Constantly changing or energetic.",
+"e": "My coworker is a dynamic speaker who commands attention wherever she goes."
+},
+"earnest": {
+"d": "adj. Serious and sincere.",
+"e": "He felt terrible about breaking the mirror and made an earnest apology."
+},
+"eclipse": {
+"d": "v. To overshadow or surpass.",
+"e": "The headliner's performance eclipsed all others in the concert."
+},
+"eloquent": {
+"d": "adj. having refined or expressive communication skills (in speaking or writing)",
+"e": "His speech was not only eloquent but also extremely compelling."
+},
+"elusive": {
+"d": "adj. Hard to find or understand.",
+"e": "Nothing became clearer, and the answer remained elusive."
+},
+"encompass": {
+"d": "v. To include or surround.",
+"e": "The project encompasses multiple disciplines."
+},
+"encounter": {
+"d": "v. To meet or face unexpectedly.",
+"e": "She encountered an old friend at the store."
+},
+"encourage": {
+"d": "v. To support or inspire.",
+"e": "Teachers often encourage students to ask questions."
+},
+"enduring": {
+"d": "adj. Lasting over time.",
+"e": "Their 50-year friendship is enduring."
+},
+"evidence": {
+"d": "n. Information that supports a conclusion.",
+"e": "There is strong evidence to support the theory."
+},
+"evoke": {
+"d": "v. to draw forth or call up",
+"e": "Horror movies are great at evoking fear."
+},
+"exacerbate": {
+"d": "v. To make a problem worse.",
+"e": "His rude comments only exacerbated the tense situation."
+},
+"exactitude": {
+"d": "n. The quality of being precise or accurate.",
+"e": "The scientist's exactitude ensured reliable results."
+},
+"exaggerate": {
+"d": "v. To overstate or magnify beyond the truth.",
+"e": "My cousin tends to exaggerate his achievements."
+},
+"exceed": {
+"d": "v. To go beyond a limit.",
+"e": "The driver exceeded the speed limit by nearly 30 miles an hour."
+},
+"exemplify": {
+"d": "v. To serve as a typical example of something.",
+"e": "The woman's kindness to her neighbors exemplifies true generosity."
+},
+"exhaustive": {
+"d": "adj. Thorough and complete.",
+"e": "The 300-page report provided an exhaustive analysis."
+},
+"expansion": {
+"d": "n. The act of increasing in size or scope.",
+"e": "The company's expansion into international markets has been successful so far."
+},
+"expensive": {
+"d": "adj. Costing a lot of money.",
+"e": "My sister's diamond ring was extremely expensive."
+},
+"experiment": {
+"d": "n. A test to discover something new.",
+"e": "The scientist conducted an experiment to test the theory."
+},
+"explicable": {
+"d": "adj. Able to be explained.",
+"e": "Once I knew the full story, my boyfriend's actions were explicable given the circumstances."
+},
+"exploit": {
+"d": "v. To take advantage of something unfairly.",
+"e": "The mining company was accused of exploiting workers."
+},
+"extensive": {
+"d": "adj. Covering a large area or scope.",
+"e": "The Art Institute of Chicago has an extensive Impressionist collection."
+},
+"extraneous": {
+"d": "adj. Unrelated or unnecessary.",
+"e": "The report contained too much extraneous information that didn't matter to the trial."
+},
+"fabricate": {
+"d": "v. To invent or create, often dishonestly.",
+"e": "The criminal fabricated evidence to support his bogus claim."
+},
+"foretell": {
+"d": "v. To predict or anticipate.",
+"e": "Ancient prophecies foretold the end of the world."
+},
+"foster": {
+"d": "v. To encourage or promote development.",
+"e": "Teachers should strive to foster creativity in students."
+},
+"fragile": {
+"d": "adj. Easily broken or delicate.",
+"e": "The glass vase is very fragile."
+},
+"fruitless": {
+"d": "adj. Failing to achieve desired results.",
+"e": "Their search for survivors was fruitless."
+},
+"genuine": {
+"d": "adj. Authentic or real.",
+"e": "His apology seemed genuine."
+},
+"grapple": {
+"d": "v. To struggle or wrestle with something.",
+"e": "The country is grappling with economic issues."
+},
+"habitual": {
+"d": "adj. Done regularly or repeatedly.",
+"e": "His habitual lateness annoyed his coworkers."
+},
+"haphazard": {
+"d": "adj. Lacking organization or planning.",
+"e": "The project was completed in a haphazard manner."
+},
+"hibernation": {
+"d": "n. A state of dormancy or deep sleep.",
+"e": "Many bear species go into hibernation during the winter."
+},
+"highlight": {
+"d": "v. To emphasize or make noticeable.",
+"e": "The article highlights key points of the debate."
+},
+"hinder": {
+"d": "v. To obstruct or slow progress.",
+"e": "The heavy traffic hindered our journey."
+},
+"hoard": {
+"d": "v. To accumulate and store excessively.",
+"e": "He hoarded food supplies and toilet paper during the pandemic."
+},
+"homogeneous": {
+"d": "adj. Uniform or similar throughout.",
+"e": "The population of the village is homogeneous."
+},
+"hypothesize": {
+"d": "v. To form a theory or assumption.",
+"e": "Scientists hypothesize about the origin of the universe."
+},
+"imaginative": {
+"d": "adj. Creative and full of new ideas.",
+"e": "The artist's work is highly imaginative."
+},
+"imitation": {
+"d": "n. A copy or replica of something.",
+"e": "The purse was an imitation of a designer brand."
+},
+"imminent": {
+"d": "adj. About to happen soon.",
+"e": "A storm is imminent according to the forecast."
+},
+"immune": {
+"d": "adj. Resistant to disease or harm.",
+"e": "He's immune to the virus due to vaccination."
+},
+"impartial": {
+"d": "adj. Fair and not biased.",
+"e": "Judges must always remain impartial during a trial."
+},
+"impending": {
+"d": "adj. Approaching or about to happen.",
+"e": "They prepared for the impending storm by boarding up windows."
+},
+"impenetrable": {
+"d": "adj. Impossible to pass through.",
+"e": "The fortress was impenetrable to enemy attack."
+},
+"imperceptible": {
+"d": "adj. Very slight or difficult to notice.",
+"e": "Alex's reaction was imperceptible, so I couldn't tell what he was thinking."
+},
+"implement": {
+"d": "v. To put into effect or execute.",
+"e": "The business will implement new rules to comply with the change in laws."
+},
+"implication": {
+"d": "n. A possible consequence or meaning.",
+"e": "The policy change has serious implications for lobbyists."
+},
+"implicit": {
+"d": "adj. Implied rather than stated directly.",
+"e": "His approval was implicit in his silence."
+},
+"impractical": {
+"d": "adj. Not sensible or realistic.",
+"e": "The dress design was too impractical to actually wear."
+},
+"improvise": {
+"d": "v. To create or perform spontaneously.",
+"e": "The actor had to improvise when he forgot his lines."
+},
+"inactive": {
+"d": "adj. Not engaged in movement or activity.",
+"e": "The volcano has been inactive for decades."
+},
+"inadequate": {
+"d": "adj. Insufficient or lacking.",
+"e": "I felt inadequate when I didn't make the final shot during the basketball game."
+},
+"inadvertently": {
+"d": "adv. Unintentionally or by accident.",
+"e": "The new worker caused a ruckus when he inadvertently deleted an important file."
+},
+"incite": {
+"d": "v. to encourage or stir up",
+"e": "Her hateful words incited anger in the crowd."
+},
+"inconspicuous": {
+"d": "adj. Not being easily seen or noticed.",
+"e": "The spy was inconspicuous as he moved through the crowd."
+},
+"indecipherable": {
+"d": "adj. Impossible to understand or read.",
+"e": "His messy handwriting was indecipherable."
+},
+"indicate": {
+"d": "v. To point out or show.",
+"e": "The results indicate a positive trend."
+},
+"indifference": {
+"d": "n. Lack of interest or concern.",
+"e": "Natalia's indifference to the situation frustrated her sisters."
+},
+"indisputable": {
+"d": "adj. Unable to be challenged or denied.",
+"e": "Because the evidence was indisputable, the lawyer was certain his client would go free."
+},
+"indistinct": {
+"d": "adj. Not clear or sharply defined.",
+"e": "The figure in the distance was blurry and indistinct."
+},
+"indulge": {
+"d": "v. To allow oneself to enjoy.",
+"e": "After a long day of work, Jane decided to indulge in a piece of cake."
+},
+"ineffectual": {
+"d": "adj. Not producing the desired effect.",
+"e": "The mayor's efforts to change the city's parking rules were ineffectual."
+},
+"inevitable": {
+"d": "adj. Certain to happen; unavoidable.",
+"e": "You must accept that change is inevitable in life."
+},
+"inexpensive": {
+"d": "adj. Not costly.",
+"e": "The new Vietnamese restaurant down the street serves inexpensive but delicious meals."
+},
+"inexplicable": {
+"d": "adj. Unable to be explained.",
+"e": "My uncle's sudden departure from the family reunion was inexplicable."
+},
+"influence": {
+"d": "n. The power to affect others.",
+"e": "The pastor's speech had a strong influence on the audience."
+},
+"infrequent": {
+"d": "adj. Not occurring often.",
+"e": "Rain is infrequent in the Atacama Desert."
+},
+"inhibit": {
+"d": "v. To hinder or restrain.",
+"e": "Fear of failure can inhibit creativity."
+},
+"innocuous": {
+"d": "adj. Harmless or inoffensive.",
+"e": "The comment seemed innocuous, but it upset him."
+},
+"insensible": {
+"d": "adj. Unaware or indifferent.",
+"e": "The father was insensible to his children's boredom."
+},
+"insignificant": {
+"d": "adj. Too small or unimportant to matter.",
+"e": "The difference in price between the two ice creams was insignificant."
+},
+"inspect": {
+"d": "v. To examine closely.",
+"e": "The contractor will inspect the building for safety."
+},
+"inspirational": {
+"d": "adj. Providing motivation or encouragement.",
+"e": "Evan's story of recovering from a severe car accident was inspirational to many."
+},
+"intangible": {
+"d": "adj. Not able to be touched or measured.",
+"e": "Love is an intangible concept."
+},
+"intentional": {
+"d": "adj. Done on purpose.",
+"e": "By reading the evidence, I could tell the man's actions were intentional."
+},
+"interchangeable": {
+"d": "adj. Able to be substituted for each other.",
+"e": "These parts are interchangeable so it doesn't matter which one you use."
+},
+"interject": {
+"d": "v. To insert a comment abruptly.",
+"e": "My brother interjected with a sarcastic remark."
+},
+"interpret": {
+"d": "v. To explain the meaning of something.",
+"e": "I don't understand this poem; can you interpret it for met?"
+},
+"intersect": {
+"d": "v. To cross or meet at a point.",
+"e": "The two streets intersect downtown."
+},
+"intricate": {
+"d": "adj. Very detailed or complicated.",
+"e": "The artist created an intricate design on the fabric."
+},
+"intriguing": {
+"d": "adj. Arousing curiosity or interest.",
+"e": "The mystery novel was intriguing because I couldn't figure out who the murderer was."
+},
+"invalidate": {
+"d": "v. To make something void or null.",
+"e": "The new evidence invalidated his argument."
+},
+"invent": {
+"d": "v. To create something new.",
+"e": "Thomas Edison invented the incandescent light bulb."
+},
+"investigation": {
+"d": "n. Systematic inquiries to uncover facts.",
+"e": "The police conducted a thorough investigation of the crime scene."
+},
+"involuntarily": {
+"d": "adv. Done without conscious control.",
+"e": "She involuntarily gasped in surprise."
+},
+"irrelevant": {
+"d": "adj. Not related or applicable.",
+"e": "His comment was irrelevant to the discussion."
+},
+"isolate": {
+"d": "v. To separate from others.",
+"e": "We need to isolate the patient with the very contagious disease."
+},
+"lacking": {
+"d": "adj. Not having enough of something.",
+"e": "The short essay was lacking in detail."
+},
+"latent": {
+"d": "adj. Present but not active.",
+"e": "He had a latent talent for music."
+},
+"legitimate": {
+"d": "adj. Lawful or valid.",
+"e": "Because he was named in the will, John's claim to the property was legitimate."
+},
+"localized": {
+"d": "adj. Restricted to a particular area.",
+"e": "The disease was localized to one region."
+},
+"manageable": {
+"d": "adj. Able to be controlled or handled.",
+"e": "I'm lucky that my workload is manageable today, so I'll be home in time for dinner."
+},
+"mandatory": {
+"d": "adj. Required or obligatory.",
+"e": "Attendance at the meeting is mandatory for all employees."
+},
+"mimic": {
+"d": "v. To imitate.",
+"e": "Parrots can mimic human speech."
+},
+"misanthropic": {
+"d": "adj. Disliking people or society.",
+"e": "The old man was known for his misanthropic views."
+},
+"misrepresent": {
+"d": "v. To give a false impression.",
+"e": "The article misrepresented the facts."
+},
+"moderate": {
+"d": "adj. Not extreme; average.",
+"e": "He never has strong opinions, and most of his views are moderate."
+},
+"multifaceted": {
+"d": "adj. Having many aspects or features.",
+"e": "The housing problem is multifaceted and will take multiple solutions to solve."
+},
+"neglect": {
+"d": "v. To fail to care for properly.",
+"e": "He neglected his responsibilities when he decided to play video games instead of clean the house."
+},
+"neutrality": {
+"d": "n. The state of not taking sides.",
+"e": "Switzerland maintained neutrality during World War II."
+},
+"newfound": {
+"d": "adj. Recently discovered or developed.",
+"e": "The recently-released prisoner enjoyed his newfound freedom."
+},
+"notional": {
+"d": "adj. Existing only in theory.",
+"e": "Because we hadn't started it, the plan was still notional."
+},
+"novel": {
+"d": "adj. New or original.",
+"e": "The doctor introduced a novel approach to hip surgery."
+},
+"nuanced": {
+"d": "adj. Having subtle differences.",
+"e": "His argument was well-developed and nuanced."
+},
+"obligate": {
+"d": "v. To compel or require.",
+"e": "The contract obligates him to pay."
+},
+"obscure": {
+"d": "adj. Not easily understood or seen.",
+"e": "The meaning of the letter was obscure and I didn't know what to make of it."
+},
+"observable": {
+"d": "adj. Able to be seen or noticed.",
+"e": "The rings of Saturn were observable through the telescope."
+},
+"observant": {
+"d": "adj. Quick to notice things.",
+"e": "The detective is very observant of small details."
+},
+"obsolete": {
+"d": "adj. no longer used; rare or uncommon",
+"e": "Historians assumed record players would be obsolete by now, but in fact they’re making a huge comeback."
+},
+"obstructed": {
+"d": "adj. Blocked or hindered.",
+"e": "We couldn't leave town because the road was obstructed by fallen trees."
+},
+"occupy": {
+"d": "v. To take up space or time.",
+"e": "The kids occupied themselves with games."
+},
+"oddity": {
+"d": "n. Something unusual or strange.",
+"e": "The museum displayed an interesting oddity."
+},
+"offhand": {
+"d": "adj. Done without preparation or thought.",
+"e": "His offhand remark surprised everyone."
+},
+"omnipotent": {
+"d": "adj. almighty and all powerful",
+"e": "Gods are omnipotent beings who can control human destiny."
+},
+"onset": {
+"d": "n. the beginning or early stages",
+"e": "At the onset of her career as a lawyer, things were looking up."
+},
+"operative": {
+"d": "adj. Functioning or having effect.",
+"e": "The new policy is now operative so be sure to follow it."
+},
+"ornamental": {
+"d": "adj. Decorative rather than functional.",
+"e": "The garden was filled with ornamental plants that helped beautify the space."
+},
+"oust": {
+"d": "v. to remove or force out of (usu. a position or office)",
+"e": "Sick and tired of putting up with his bad moods, the pirates ousted their captain."
+},
+"outstrip": {
+"d": "v. To surpass or exceed.",
+"e": "Sales of my new novel outstripped all expectations."
+},
+"overcome": {
+"d": "v. To succeed in dealing with a problem.",
+"e": "She overcame her fear of public speaking and was able to deliver her remarks."
+},
+"overlook": {
+"d": "v. To fail to notice or consider.",
+"e": "The officer overlooked an important detail that would have helped solve the crime."
+},
+"overreact": {
+"d": "v. To respond too strongly.",
+"e": "My sister overreacted to our parents' criticism of her outfit."
+},
+"overshadow": {
+"d": "v. To be more important than something else.",
+"e": "His success overshadowed his past failures."
+},
+"overtly": {
+"d": "adv. Openly and clearly.",
+"e": "He overtly expressed his disapproval by telling me what he thought."
+},
+"overwhelmed": {
+"d": "adj. Feeling excessive stress or emotion.",
+"e": "Agatha felt overwhelmed by her workload and had no idea how she'd finish it all in time."
+},
+"paramount": {
+"d": "adj. predominant, superior, most important",
+"e": "Our paramount concern is the safety of our employees."
+},
+"paucity": {
+"d": "n. A scarcity or lack.",
+"e": "The crime will be difficult to solve because there is a paucity of evidence."
+},
+"perceive": {
+"d": "v. To become aware of something.",
+"e": "She perceived a hint of sadness in his voice."
+},
+"peripheral": {
+"d": "adj. On the edge or outer part of something.",
+"e": "My involvement was peripheral to the project because I didn't do much."
+},
+"permanent": {
+"d": "adj. Lasting indefinitely.",
+"e": "The marker left a permanent stain on my favorite shirt that I won't be able ot get out."
+},
+"perpetual": {
+"d": "adj. Continuing forever or indefinitely.",
+"e": "The con artist lived in perpetual fear of being arrested."
+},
+"persistent": {
+"d": "adj. Continuing despite difficulty.",
+"e": "After fifty years of buying lottery tickets, persistent efforts paid off when he won the jackpot."
+},
+"popularize": {
+"d": "v. To make widely known.",
+"e": "The internet popularized online shopping."
+},
+"postulate": {
+"d": "v. To assume or propose a theory.",
+"e": "Scientists postulated a new hypothesis for the origin of the universe."
+},
+"pragmatic": {
+"d": "adj. Practical and realistic.",
+"e": "Elliot put his emotions aside and took a pragmatic approach to problem-solving."
+},
+"praise": {
+"d": "v. To express approval or admiration.",
+"e": "The teacher praised the students’ hard work."
+},
+"precarious": {
+"d": "adj. Uncertain or unstable.",
+"e": "The goat was perched on a precarious edge of the cliff."
+},
+"preclude": {
+"d": "v. To prevent from happening.",
+"e": "Dylan's injury precluded him from playing in the soccer match."
+},
+"predatory": {
+"d": "adj. Exploiting others for personal gain.",
+"e": "The credit company engaged in predatory lending practices."
+},
+"predetermined": {
+"d": "adj. Decided in advance.",
+"e": "The outcome seemed predetermined and that we could do nothing to change it."
+},
+"predict": {
+"d": "v. To say what will happen in the future.",
+"e": "Meteorologists predict rain tomorrow."
+},
+"premeditated": {
+"d": "adj. Planned beforehand.",
+"e": "Because the man had planned the theft for weeks, it was obvious the crime was premeditated."
+},
+"prescribe": {
+"d": "v. To recommend or order a treatment.",
+"e": "The doctor prescribed antibiotics when I had an ear infection."
+},
+"preserve": {
+"d": "v. To keep something in its original state.",
+"e": "The builders worked to preserve the house's original decorations."
+},
+"presume": {
+"d": "v. To assume something to be true.",
+"e": "I presume he will be late to the party."
+},
+"prevail": {
+"d": "v. To win or be more powerful.",
+"e": "Justice will always prevail."
+},
+"preventable": {
+"d": "adj. Able to be avoided.",
+"e": "Many diseases are preventable with vaccines."
+},
+"probability": {
+"d": "n. Likelihood of something happening.",
+"e": "When you live in the desert, there's almost always a low probability of rain."
+},
+"proclaim": {
+"d": "v. To announce officially.",
+"e": "The king proclaimed a new law."
+},
+"produce": {
+"d": "v. To create or generate something.",
+"e": "The Ford factory produces thousands of cars each year."
+},
+"profusion": {
+"d": "n. A large quantity of something.",
+"e": "The garden had a profusion of flowers every spring."
+},
+"prolong": {
+"d": "v. To extend in duration.",
+"e": "He tried to prolong the meeting from one hour to two."
+},
+"prominent": {
+"d": "adj. Important or well-known.",
+"e": "Marie Curie was a prominent scientist who won many awards."
+},
+"proponent": {
+"d": "n. A supporter of a cause or idea.",
+"e": "The environmentalist was a proponent of renewable energy."
+},
+"provoke": {
+"d": "v. To stir up or incite.",
+"e": "Miriam's rude words provoked an argument."
+},
+"prudently": {
+"d": "adv. In a wise or careful manner.",
+"e": "My grandmother always prudently saved money for emergencies."
+},
+"quantity": {
+"d": "n. An amount or number.",
+"e": "The pudding recipe requires a small quantity of sugar."
+},
+"quarrel": {
+"d": "n. An angry argument or dispute.",
+"e": "The couple had a loud quarrel over money."
+},
+"questionable": {
+"d": "adj. Doubtful or uncertain.",
+"e": "Despite claiming to want to help people, the politician's motives were questionable."
+},
+"ramify": {
+"d": "v. to split into two or more branches",
+"e": "Cars ramified throughout the world in the twentieth century."
+},
+"rarely": {
+"d": "adv. Infrequently or seldom.",
+"e": "My sister rarely eats fast food."
+},
+"rationalize": {
+"d": "v. To justify an action with reasoning.",
+"e": "He tried to rationalize his mistake by explaining his thought process."
+},
+"rebellion": {
+"d": "n. An act of resistance against authority.",
+"e": "The peasants led a rebellion against the king."
+},
+"recalcitrant": {
+"d": "adj. Stubbornly resistant to authority.",
+"e": "The recalcitrant student refused to obey."
+},
+"recant": {
+"d": "v. To take back a previous statement.",
+"e": "He was forced to recant his confession."
+},
+"receptive": {
+"d": "adj. Open to new ideas.",
+"e": "The new dancer was receptive to feedback."
+},
+"reciprocate": {
+"d": "v. To give in return.",
+"e": "I reciprocated my brother's kindness by buying him dinner."
+},
+"recognizable": {
+"d": "adj. Easily identified.",
+"e": "The Nike logo is instantly recognizable."
+},
+"rectify": {
+"d": "v. To correct or fix something.",
+"e": "She tried to rectify her mistake with an apology."
+},
+"redefine": {
+"d": "v. To change the meaning of something.",
+"e": "The company redefined its mission."
+},
+"redress": {
+"d": "v. To set right or remedy.",
+"e": "They sought to redress past injustices."
+},
+"reform": {
+"d": "v. To improve by making changes.",
+"e": "The government promised to reform the healthcare system."
+},
+"refuse": {
+"d": "v. To decline or reject.",
+"e": "Emilia refused the job offer."
+},
+"refute": {
+"d": "v. To prove false or incorrect.",
+"e": "The scientist refuted the claim that the Earth was flat."
+},
+"regrettable": {
+"d": "adj. Causing sorrow or disappointment.",
+"e": "Forgetting my boyfriend's birthday was a regrettable mistake."
+},
+"regulate": {
+"d": "v. To control or manage.",
+"e": "The government regulates nuclear energy facilities."
+},
+"reject": {
+"d": "v. To dismiss or refuse to accept.",
+"e": "She rejected her boyfriend's proposal."
+},
+"relocate": {
+"d": "v. To move to a new place.",
+"e": "The dentist relocated to a bigger office."
+},
+"renounce": {
+"d": "v. To give up or reject formally.",
+"e": "He renounced his citizenship after moving to a new country."
+},
+"replenish": {
+"d": "v. To refill or restore.",
+"e": "After we finished the lemonade, the hostess replenished the pitcher."
+},
+"replicable": {
+"d": "adj. Able to be copied or repeated.",
+"e": "The experiment's results were replicable."
+},
+"representative": {
+"d": "n. A person acting on behalf of others.",
+"e": "The company's representative spoke at the meeting."
+},
+"repress": {
+"d": "v. To suppress or hold back.",
+"e": "Although devastated, Jalen repressed his emotions."
+},
+"reprieve": {
+"d": "n. A temporary relief or delay.",
+"e": "Because the defendant needed surgery, the judge granted a reprieve."
+},
+"repudiate": {
+"d": "v. To reject or disown.",
+"e": "She repudiated the accusation that she'd stolen money from the company."
+},
+"resilient": {
+"d": "adj. Able to recover quickly.",
+"e": "Even after setbacks, the patient is very resilient."
+},
+"resolve": {
+"d": "v. To find a solution.",
+"e": "The warring siblings eventually resolved their differences."
+},
+"responsive": {
+"d": "adj. Reacting quickly or positively.",
+"e": "The team wanted to improve and was very responsive to feedback."
+},
+"restore": {
+"d": "v. To bring back to original condition.",
+"e": "The architecture team carefully restored the old house."
+},
+"restrain": {
+"d": "v. To hold back or limit.",
+"e": "Even though Tom was furious, he restrained his anger."
+},
+"retain": {
+"d": "v. To keep or hold onto.",
+"e": "I use this pitcher to retain water for my herb garden."
+},
+"retaliate": {
+"d": "v. To respond to an attack.",
+"e": "After Celia yelled at Dom, he retaliated with a counterattack."
+},
+"reticent": {
+"d": "adj. Reluctant to share one's thoughts or feelings; reserved",
+"e": "My neighbor is so reticent I never know what she really thinks of anything."
+},
+"rousing": {
+"d": "adj. Exciting or stirring.",
+"e": "The speaker gave a rousing speech that brought the audience to its feet."
+},
+"rudimentary": {
+"d": "adj. Basic or simple.",
+"e": "The little boy only has a rudimentary understanding of math."
+},
+"sanction": {
+"d": "v. To authorize or approve.",
+"e": "The government sanctioned the project so construction will start soon."
+},
+"sanguine": {
+"d": "adj. Optimistic or hopeful.",
+"e": "He remained sanguine despite repeated setbacks."
+},
+"saturate": {
+"d": "v. To soak or fill completely.",
+"e": "The sponge was saturated with water."
+},
+"scorn": {
+"d": "v. to look down on with disdain",
+"e": "It’s difficult for me not to scorn those who use improper grammar."
+},
+"scrutinize": {
+"d": "v. To examine closely.",
+"e": "I'm going to have my lawyer scrutinize the contract."
+},
+"secretive": {
+"d": "adj. Keeping things hidden.",
+"e": "He was secretive about his plans for Valentine's Day."
+},
+"sensitive": {
+"d": "adj. Easily affected or aware.",
+"e": "She is very sensitive to criticism."
+},
+"simulate": {
+"d": "v. To imitate or replicate.",
+"e": "The pilot simulated an emergency landing."
+},
+"sincerity": {
+"d": "n. The quality of being genuine.",
+"e": "His sincerity was evident in his speech."
+},
+"skeptical": {
+"d": "adj. Doubtful or questioning.",
+"e": "The teacher was skeptical of the student's claim that the dog ate her homework."
+},
+"sophisticated": {
+"d": "adj. Complex or refined.",
+"e": "The building's design was intricate and sophisticated."
+},
+"span": {
+"d": "n. The extent or length of something.",
+"e": "The Golden Gate Bridge has a long span."
+},
+"sparingly": {
+"d": "adv. insufficiently, meagerly, or in a restricted manner",
+"e": "Due to my blood pressure, I must eat salt sparingly."
+},
+"speculate": {
+"d": "v. To guess or theorize.",
+"e": "He speculated about the outcome of the soccer match."
+},
+"spurious": {
+"d": "adj. False or deceptive.",
+"e": "The claims were spurious and therefore thrown out in court."
+},
+"stark": {
+"d": "adj. Very plain; devoid of any details or features",
+"e": "Looking out at the stark landscape, I felt a keen sense of isolation."
+},
+"strenuously": {
+"d": "adv. With great effort.",
+"e": "She strenuously denied the accusations against her."
+},
+"sturdily": {
+"d": "adv. Strongly or solidly.",
+"e": "The chair was sturdily built and had no chance of breaking."
+},
+"stymie": {
+"d": "v. To hinder or block.",
+"e": "The restoration project was stymied by a lack of funds."
+},
+"substantial": {
+"d": "adj. Large or important.",
+"e": "Jackie made a substantial donation to her alma mater."
+},
+"subtle": {
+"d": "adj. Hard to detect or analyze",
+"e": "The author gave a subtle hint as to who the murderer was."
+},
+"succumb": {
+"d": "v. To give in or surrender.",
+"e": "He succumbed to the temptation to eat the entire bag of gummy bears."
+},
+"superficial": {
+"d": "adj. Shallow or lacking depth.",
+"e": "The candidate struggled to answer questions about policy because his knowledge was superficial."
+},
+"supplement": {
+"d": "v. To add to something.",
+"e": "She supplemented her income by starting a side hustle."
+},
+"surmise": {
+"d": "v. To infer or guess.",
+"e": "He surmised the answer based on context clues."
+},
+"surpass": {
+"d": "v. To exceed or go beyond.",
+"e": "She surpassed expectations by winning the national spelling bee."
+},
+"surrender": {
+"d": "v. To give up or yield.",
+"e": "The weakened army surrendered to the enemy."
+},
+"susceptible": {
+"d": "adj. Easily influenced or affected.",
+"e": "With his weakened immune system, Marcelo is susceptible to illness."
+},
+"synchronization": {
+"d": "n. The process of coordinating events.",
+"e": "The synchronization of lights helped traffic flow."
+},
+"tentative": {
+"d": "adj. Uncertain or not fully decided.",
+"e": "Our plans are tentative and may change."
+},
+"tenuous": {
+"d": "adj. Weak or insubstantial.",
+"e": "His argument was tenuous at best."
+},
+"theoretical": {
+"d": "adj. Based on theory rather than practice.",
+"e": "The idea remains theoretical until tested."
+},
+"theory": {
+"d": "n. A system of ideas intended to explain something.",
+"e": "Einstein's theory of relativity changed physics."
+},
+"thoughtfulness": {
+"d": "n. Consideration for others.",
+"e": "Her thoughtfulness made her a great friend."
+},
+"tranquil": {
+"d": "adj. Peaceful and calm.",
+"e": "The lake was tranquil at sunset."
+},
+"transform": {
+"d": "v. To change in form or appearance.",
+"e": "The caterpillar transformed into a butterfly."
+},
+"ubiquitous": {
+"d": "adj. Present everywhere.",
+"e": "Smartphones have become ubiquitous in society."
+},
+"uncontroversial": {
+"d": "adj. Not likely to cause disagreement.",
+"e": "The decision was uncontroversial and widely accepted."
+},
+"undeniable": {
+"d": "adj. Cannot be disputed.",
+"e": "Simone Biles' talent as a gymnast is undeniable."
+},
+"underscore": {
+"d": "v. To emphasize.",
+"e": "The report underscored the importance of safety."
+},
+"unimportant": {
+"d": "adj. Not significant.",
+"e": "The details were unimportant to the main issue."
+},
+"unintended": {
+"d": "adj. Not planned or meant.",
+"e": "The side effects of the medication were unintended."
+},
+"universal": {
+"d": "adj. Common to all.",
+"e": "The desire for love is universal."
+},
+"unmistakable": {
+"d": "adj. Clearly recognizable.",
+"e": "Morgan Freeman's voice is unmistakable."
+},
+"unobtrusive": {
+"d": "adj. Not attracting attention.",
+"e": "The waitress did her best to be unobtrusive while clearing the table."
+},
+"unoriginal": {
+"d": "adj. Lacking originality.",
+"e": "His speech was unoriginal and predictable."
+},
+"unpredictable": {
+"d": "adj. Difficult to foresee.",
+"e": "The weather in winter can often be unpredictable."
+},
+"validate": {
+"d": "v. To confirm the accuracy of something.",
+"e": "The test results validated his hypothesis."
+},
+"variable": {
+"d": "adj. Likely to change.",
+"e": "The weather is highly variable in spring."
+},
+"verisimilitude": {
+"d": "n. The appearance of being true or real.",
+"e": "The novel’s verisimilitude made it compelling."
+},
+"veritable": {
+"d": "adj. Used to emphasize truth.",
+"e": "Einstein was a veritable genius."
+},
+"vigilance": {
+"d": "n. The action of keeping careful watch.",
+"e": "Constant vigilance is needed for security."
+},
+"vital": {
+"d": "adj. Urgently necessary",
+"e": "It is vital that you respond by the deadline."
+},
+"volatile": {
+"d": "adj. Liable to change rapidly and unpredictably; easily evaporated (in scientific contexts)",
+"e": "My uncle's mood is very volatile, so we never know how he's going to react."
+},
+"waive": {
+"d": "v. To give up a right or claim voluntarily.",
+"e": "He waived his right to an attorney."
+},
+"warranted": {
+"d": "adj. Justified or necessary.",
+"e": "The decision was warranted by the evidence."
+},
+"widespread": {
+"d": "adj. Found or occurring over a large area.",
+"e": "The disease became widespread."
+},
+"withdraw": {
+"d": "v. To remove or retreat.",
+"e": "She withdrew from the competition."
+}
 }

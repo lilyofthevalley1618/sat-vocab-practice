@@ -154,8 +154,10 @@ function playDing(enabled, getCtx) {
 // HTML-escape an example sentence and wrap the vocab word (and its endings, e.g. "abated") in <mark>.
 function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function markExample(e, word) {
-  const stem = word.w.toLowerCase().replace(/[^a-z]/g, '');
-  return escHtml(e).replace(new RegExp('\\b(' + stem + '[a-z]*)', 'gi'), '<mark>$1</mark>');
+  // Match inflected forms too (abated, withdrew) by using the word minus its last two letters (min 4).
+  const w = word.w.toLowerCase().replace(/[^a-z]/g, ''), stem = w.slice(0, Math.max(4, w.length - 2));
+  const alt = { foretell: 'foretold', overcome: 'overcam' }[w];
+  return escHtml(e).replace(new RegExp('\\b(' + stem + (alt ? '|' + alt : '') + ')([a-z]*)', 'gi'), '<mark>$1$2</mark>').replace(/\n/g, '<br>');
 }
 function laDay(now = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
