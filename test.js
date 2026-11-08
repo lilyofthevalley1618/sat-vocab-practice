@@ -195,6 +195,26 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
     }
   }
   assert(n > 10000);
-  assert.strictEqual(BYK.abysmal.d, 'extremely bad; appalling'); assert(/earlier/.test(BYK.antecedent.d)); assert(/close to/.test(BYK.approximate.d));
+  assert.strictEqual(BYK.abysmal.d, 'extremely bad'); assert.strictEqual(BYK.antecedent.d, 'A preceding event or condition.');
+}
+// Definitions must match the PrepScholar table exactly (whitespace-normalized), all 384
+{ const SRC = require('./source-prepscholar.json'); assert.strictEqual(Object.keys(SRC).length, 384);
+  let exact = 0;
+  for (const w of W) {
+    const src = SRC[w.w.toLowerCase()]; assert(src, 'no source for ' + w.w);
+    const rebuilt = w.senses.map(s => w.p + '. ' + s).join('\n'); assert.strictEqual(rebuilt, src, w.w);
+    assert.strictEqual(w.d, w.senses.join('; ')); exact++;
+  }
+  assert.strictEqual(exact, 384);
+  // every unit/review question: right answer once, options from that stage's pool, no overlapping meanings
+  const BYK = Object.fromEntries(W.map(w => [L.key(w), w]));
+  for (const st of path.filter(x => x.type !== 'final')) {
+    const poolK = new Set((st.pool || st.words).map(L.key));
+    for (const w of st.words) for (const qi of [0, 1]) {
+      const q = L.buildQuestion(st, L.key(w), qi, BYK);
+      assert.strictEqual(q.options.length, 4, st.id + ' ' + w.w); assert.strictEqual(q.options.filter(o => o === w).length, 1);
+      assert(q.options.every(o => poolK.has(L.key(o)))); assert(q.options.every(o => o === w || !L.confusable(w, o)), w.w);
+    }
+  }
 }
 console.log('all tests passed');

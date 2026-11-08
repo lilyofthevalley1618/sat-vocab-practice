@@ -49,7 +49,16 @@ function shuffle(a, rnd = Math.random) {
 const CONFUSABLE = [['Acceptable', 'Adequate', 'Appropriate'], ['Adapt', 'Adjust', 'Accommodate'], ['Aggressive', 'Antagonistic'],
   ['Abate', 'Ameliorate'], ['Aggravate', 'Amplify'], ['Abstract', 'Arcane'], ['Abrupt', 'Accidental'], ['Accuracy', 'Approximate'],
   ['Acknowledge', 'Announce'], ['Advise', 'Announce'], ['Advantageous', 'Beneficial'], ['Abysmal', 'Arduous'], ['Adept', 'Adequate']];
-const confusable = (a, b) => CONFUSABLE.some(g => g.includes(a.w) && g.includes(b.w));
+const STOP = new Set('the and for with that this from into than something someone being about such have having make more less very easily often able other others their your what when which while without through over under used state quality act person things thing done give take'.split(' '));
+const content = d => new Set(d.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !STOP.has(t)).map(t => t.slice(0, 5)));
+// Overlap: listed pair, one word's name inside the other's definition, or definitions sharing a meaningful word.
+const confusable = (a, b) => {
+  if (CONFUSABLE.some(g => g.includes(a.w) && g.includes(b.w))) return true;
+  const stem = w => w.w.toLowerCase().slice(0, 6);
+  if (b.d.toLowerCase().includes(stem(a)) || a.d.toLowerCase().includes(stem(b))) return true;
+  const ca = content(a.d); for (const t of content(b.d)) if (ca.has(t)) return true;
+  return false;
+};
 // Distractors: prefer same part of speech so options look plausible.
 function choices(word, all, n = 4, rnd = Math.random) {
   const seenD = new Set([word.d.toLowerCase()]), seenW = new Set([key(word)]);
@@ -58,8 +67,9 @@ function choices(word, all, n = 4, rnd = Math.random) {
     if (seenW.has(key(w)) || seenD.has(d) || confusable(word, w)) return false;
     seenW.add(key(w)); seenD.add(d); return true;
   });
-  const same = shuffle(others.filter(w => w.p === word.p), rnd);
-  const rest = shuffle(others.filter(w => w.p !== word.p), rnd);
+  const pool2 = others; // never fall back to overlapping words; tiny pools just get fewer options
+  const same = shuffle(pool2.filter(w => w.p === word.p), rnd);
+  const rest = shuffle(pool2.filter(w => w.p !== word.p), rnd);
   return shuffle([word, ...same.concat(rest).slice(0, n - 1)], rnd);
 }
 
@@ -213,5 +223,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, markExample, escHtml };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
