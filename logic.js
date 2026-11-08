@@ -44,12 +44,18 @@ function shuffle(a, rnd = Math.random) {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
+// Words whose meanings overlap enough that one could reasonably be picked for the other.
+// They are never shown as wrong options for each other.
+const CONFUSABLE = [['Acceptable', 'Adequate', 'Appropriate'], ['Adapt', 'Adjust', 'Accommodate'], ['Aggressive', 'Antagonistic'],
+  ['Abate', 'Ameliorate'], ['Aggravate', 'Amplify'], ['Abstract', 'Arcane'], ['Abrupt', 'Accidental'], ['Accuracy', 'Approximate'],
+  ['Acknowledge', 'Announce'], ['Advise', 'Announce'], ['Advantageous', 'Beneficial'], ['Abysmal', 'Arduous'], ['Adept', 'Adequate']];
+const confusable = (a, b) => CONFUSABLE.some(g => g.includes(a.w) && g.includes(b.w));
 // Distractors: prefer same part of speech so options look plausible.
 function choices(word, all, n = 4, rnd = Math.random) {
   const seenD = new Set([word.d.toLowerCase()]), seenW = new Set([key(word)]);
   const others = shuffle(all, rnd).filter(w => {
     const d = w.d.toLowerCase();
-    if (seenW.has(key(w)) || seenD.has(d)) return false;
+    if (seenW.has(key(w)) || seenD.has(d) || confusable(word, w)) return false;
     seenW.add(key(w)); seenD.add(d); return true;
   });
   const same = shuffle(others.filter(w => w.p === word.p), rnd);

@@ -177,4 +177,24 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   }
   assert.strictEqual(L.markExample('A <b>& abate', { w: 'Abate' }), 'A &lt;b&gt;&amp; <mark>abate</mark>');
 }
+// First 40 words (Units 1–4): runtime quiz audit over many seeds
+{ const BYK = Object.fromEntries(W.map(w => [L.key(w), w])), first40 = new Set(W.slice(0, 40).map(L.key));
+  const groups = [['Acceptable', 'Adequate', 'Appropriate'], ['Adapt', 'Adjust', 'Accommodate'], ['Aggressive', 'Antagonistic'], ['Abate', 'Ameliorate']];
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const stages = path.filter(x => ['u0', 'u1', 'u2', 'u3', 'r0', 'r2'].includes(x.id)); assert.strictEqual(stages.length, 6);
+  let n = 0;
+  for (let run = 0; run < 300; run++) for (const st of stages) {
+    const S = L.newSession(st.words.map(L.key), rnd);
+    while (S.queue.length) {
+      const q = L.buildQuestion(st, S.queue[0].k, S.qi, BYK, rnd); n++;
+      assert.strictEqual(q.options.length, 4); assert.strictEqual(q.options.filter(o => o === q.w).length, 1);
+      assert.strictEqual(new Set(q.options.map(o => o.d.toLowerCase())).size, 4);
+      assert(q.options.every(o => first40.has(L.key(o))));
+      for (const g of groups) assert(!(g.includes(q.w.w) && q.options.some(o => o !== q.w && g.includes(o.w))), q.w.w + ' with confusable');
+      L.answerSession(S, rnd() > 0.2);
+    }
+  }
+  assert(n > 10000);
+  assert.strictEqual(BYK.abysmal.d, 'extremely bad; appalling'); assert(/earlier/.test(BYK.antecedent.d)); assert(/close to/.test(BYK.approximate.d));
+}
 console.log('all tests passed');
