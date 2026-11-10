@@ -111,7 +111,8 @@ const day2 = DG.daily.day;
 assert(!L.recordDaily(DG, day2, 2, 1).perfect); assert(L.dailyBlocks(DG)); // mistake
 const DS = L.newSession(DG.daily.words); L.answerSession(DS, false); while (DS.queue.length) L.answerSession(DS, true);
 assert(!L.recordDaily(DG, day2, DS.total, DS.missed.length).perfect); assert(L.dailyBlocks(DG)); // miss then retry right ≠ perfect
-assert(L.recordDaily(DG, day2, 2, 0).perfect); assert(!L.dailyBlocks(DG));
+assert(L.recordDaily(DG, day2, 2, 0, 1).perfect); assert(L.dailyBlocks(DG)); // Part 1 alone does not finish the day
+assert(L.recordDaily(DG, day2, 1, 0, 2).perfect); assert(!L.dailyBlocks(DG));
 L.grade(DP, W[2], true, DT2); assert(!L.ensureDaily(DG, DP, DT2 + 1000)); assert(!L.dailyBlocks(DG)); // no re-block same day
 assert(L.recordDaily(DG, '2026-01-01', 2, 0).stale); // old-day run doesn't count
 // rollover clears paused daily session; backup keeps daily
@@ -146,7 +147,7 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   const DG2 = L.newGate(), D1 = Date.UTC(2026, 10, 9, 20); const DPp = { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } };
   L.ensureDaily(DG2, DPp, D1); L.grade(DPp, W[100], false, D1);
   const dw = L.withWeak(DG2.daily.words.map(k => BYK[k]), DPp, W); assert.deepStrictEqual(dw.map(L.key), ['abate', L.key(W[100])]);
-  L.recordDaily(DG2, DG2.daily.day, 2, 0); L.grade(DPp, W[101], false, D1); L.ensureDaily(DG2, DPp, D1 + 1000); assert(!L.dailyBlocks(DG2));
+  L.recordDaily(DG2, DG2.daily.day, 2, 0, 1); L.recordDaily(DG2, DG2.daily.day, 1, 0, 2); L.grade(DPp, W[101], false, D1); L.ensureDaily(DG2, DPp, D1 + 1000); assert(!L.dailyBlocks(DG2));
 }
 // Wrong-answer explanations and ding
 { const BYK = Object.fromEntries(W.map(w => [L.key(w), w])), u = path.find(x => x.id === 'u1');
@@ -218,4 +219,53 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
 // No future review dates/countdowns shown anywhere in the UI
 { const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
   assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }
+// Daily Review Part 2 + cloze sentences
+{ const C = require('./cloze.js'), SRC = require('./source-prepscholar.json');
+  assert.strictEqual(Object.keys(C).length, 384);
+  for (const w of W) {
+    const items = C[L.key(w)]; assert(items && items.length >= 3, w.w);
+    const texts = new Set();
+    for (const it of items) {
+      assert.strictEqual((it.s.match(/_____/g) || []).length, 1, w.w);
+      assert(it.fill && it.s.length > 20, w.w);
+      assert(!texts.has(it.s), 'dup ' + w.w); texts.add(it.s);
+      assert(it.s.replace('_____', it.fill) !== SRC[L.key(w)].e, 'copied official ' + w.w);
+      const filled = it.s.replace('_____', it.fill);
+      assert(filled.toLowerCase().includes(it.fill.toLowerCase()));
+    }
+    // avoid last used
+    const p1 = L.pickCloze(items, 0, () => 0); assert.notStrictEqual(p1.i, 0);
+    const always = new Set(); for (let i = 0; i < 8; i++) always.add(L.pickCloze(items, 0, () => 0.99).i);
+    assert(!always.has(0) || items.length === 1);
+  }
+  assert.strictEqual(L.halfCount(60), 30); assert.strictEqual(L.halfCount(61), 31); assert.strictEqual(L.halfCount(1), 1);
+  const keys = W.slice(0, 60).map(L.key), half = L.pickHalf(keys, () => 0.3);
+  assert.strictEqual(half.length, 30); assert.strictEqual(new Set(half).size, 30); assert(half.every(k => keys.includes(k)));
+  // part 1 perfect does not pass; both needed; part 2 fail keeps part1
+  const G = L.newGate(); L.ensureDaily(G, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 10, 20));
+  assert(L.dailyBlocks(G));
+  assert(L.recordDaily(G, G.daily.day, 1, 0, 1).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
+  assert(!L.recordDaily(G, G.daily.day, 5, 1, 2).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
+  assert(L.recordDaily(G, G.daily.day, 5, 0, 2).perfect); assert(!L.dailyBlocks(G));
+  // cloze questions: options from pool, one correct, no confusable, form matches blank
+  const pool = W.slice(0, 20);
+  for (const w of pool) {
+    const q = L.buildClozeQuestion(w, pool, C[L.key(w)], null, () => 0.4);
+    assert.strictEqual(q.type, 'cloze'); assert(q.prompt.includes('_____'));
+    assert(q.options.some(o => o.w === w && o.fill === q.fill));
+    assert.strictEqual(new Set(q.options.map(o => o.fill.toLowerCase())).size, q.options.length);
+    assert(q.options.every(o => pool.includes(o.w)));
+    assert(q.options.every(o => o.w === w || !L.confusable(w, o.w)));
+  }
+  // resume/backup includes part2 session + last cloze
+  G.clozeLast = { abate: 2 }; G.resume.daily2 = L.newSession(['abate', 'abrupt']); G.resume.daily2.cloze = { abate: 1 };
+  const bk = L.importData(L.exportData({}, G));
+  assert.deepStrictEqual(bk.gate.clozeLast, { abate: 2 });
+  assert.deepStrictEqual(bk.gate.resume.daily2.keys, ['abate', 'abrupt']);
+  assert.strictEqual(bk.gate.resume.daily2.cloze.abate, 1);
+  assert.strictEqual(bk.gate.daily.part1, true);
+  // source defs+examples unchanged
+  let eq = 0; for (const w of W) { const s = SRC[L.key(w)]; if (w.e === s.e && w.senses.map(x => w.p + '. ' + x).join('\n') === s.d) eq++; }
+  assert.strictEqual(eq, 384);
+}
 console.log('all tests passed');

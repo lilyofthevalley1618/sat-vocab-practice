@@ -26,7 +26,21 @@ $('#home').onclick = e => { e.preventDefault(); home(); };
 const VERSION = document.querySelector('meta[name=app-version]').content;
 let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
-const startDaily = () => { dayCheck(); const st = dailyStage(); if (!gate.daily.passed && (st.words.length || gate.resume.daily)) quiz(st.words, 'Daily Review', true, st.words, st); else dailyView(); };
+const startDaily = () => {
+  dayCheck();
+  if (gate.daily.passed) return dailyView();
+  if (gate.resume.daily2 || gate.daily.part1) return startDailyPart2();
+  const st = dailyStage();
+  if (st.words.length || gate.resume.daily) quiz(st.words, 'Daily Review, Part 1', true, st.words, st);
+  else dailyView();
+};
+const startDailyPart2 = () => {
+  dayCheck();
+  if (!gate.daily || gate.daily.passed || (gate.daily.day !== L.laDay())) return dailyView();
+  const baseKeys = gate.daily.part1Keys || L.withWeak(dailyStage().words, prog, WORDS).map(L.key);
+  const st = { type: 'daily2', id: 'daily2', day: gate.daily.day, words: baseKeys.map(k => BYKEY[k]).filter(Boolean) };
+  quiz(st.words, 'Daily Review, Part 2', false, st.words, st);
+};
 const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
 const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
 // Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
@@ -69,10 +83,16 @@ function gramQuiz(i, list, scored) {
 }
 function dailyView() {
   onHome = true; dayCheck(); const dly = gate.daily;
-  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>
-   ${!dly.words.length && dly.passed ? '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>'
-     : dly.passed ? `<p>✓ Done for today: all ${dly.words.length} words right on the first try. Your path is open.</p>`
-     : `<p>${L.withWeak(dailyStage().words, prog, WORDS).length} words: ${dly.words.length} learned before today${(() => { const n = L.withWeak(dailyStage().words, prog, WORDS).length - dly.words.length; return n ? ` plus ${n} weak word${n > 1 ? 's' : ''} from today` : ''; })()}. Get them all right on the first try to continue your path today.${gate.resume.daily ? ` (Paused at ${gate.resume.daily.done}/${gate.resume.daily.total})` : ''}</p><button class="alt" id="daily">${gate.resume.daily ? 'Resume Daily Review' : 'Start Daily Review'}</button>`}</section>`;
+  const nToday = L.withWeak(dailyStage().words, prog, WORDS).length;
+  const extra = nToday - dly.words.length;
+  const half = nToday ? L.halfCount(nToday) : 0;
+  const paused1 = gate.resume.daily, paused2 = gate.resume.daily2;
+  let body;
+  if (!dly.words.length && dly.passed && !nToday) body = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
+  else if (dly.passed) body = `<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>`;
+  else if (dly.part1) body = `<p>Part 1 is done. Part 2 still needed: ${paused2 ? `paused at ${paused2.done}/${paused2.total}` : half + ' fill-in sentences'} (half of today's words). You need 100% on the first try in Part 2 as well.</p><button class="alt" id="daily">${paused2 ? 'Resume Part 2' : 'Start Part 2'}</button>`;
+  else body = `<p>${nToday} words: ${dly.words.length} learned before today${extra ? ` plus ${extra} weak word${extra > 1 ? 's' : ''} from today` : ''}. Daily Review has two parts. Part 1 checks meanings for all of today's words. Part 2 uses half of those words (${half || '—'}) in fill-in-the-blank sentences. You need 100% on the first try in <b>both</b> parts.${paused1 ? ` Part 1 is paused at ${paused1.done}/${paused1.total}.` : ''}</p><button class="alt" id="daily">${paused1 ? 'Resume Part 1' : 'Start Daily Review'}</button>`;
+  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${body}</section>`;
   wireTabs(); if ($('#daily')) $('#daily').onclick = startDaily;
 }
 function home() {
@@ -126,12 +146,13 @@ function flash(words, title, then, graded = true) {
     const w = words[n];
     app.innerHTML = `<section class="card"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p>
      <div class="flash card" id="fc" tabindex="0" role="button" aria-label="Flip card">${flipped || !graded ? `<div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span><p>${esc(w.d)}</p>${w.e ? `<p class="ex">“${L.markExample(w.e, w)}”</p>` : ''}` : `<div class="word">${esc(w.w)}</div><p class="muted">Think of the meaning, then tap to flip</p>`}</div>
-     <div class="row">${graded ? (flipped ? `<button class="alt" id="y">I knew it</button><button id="n">Not yet</button>` : `<button id="fl">Flip</button>`) : `<button id="nx">Next</button>`}<button class="ghost" id="q">Exit</button></div></section>`;
+     <div class="row">${n ? '<button class="ghost" id="pv">Previous</button>' : ''}${graded ? (flipped ? `<button class="alt" id="y">I knew it</button><button id="n">Not yet</button>` : `<button id="fl">Flip</button>`) : `<button id="nx">Next</button>`}<button class="ghost" id="q">Exit</button></div></section>`;
     const flip = () => { if (graded) { flipped = true; show(); } };
     $('#fc').onclick = flip; $('#fc').onkeydown = e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), flip());
     $('#q').onclick = home;
     if ($('#fl')) $('#fl').onclick = flip;
-    if ($('#nx')) $('#nx').onclick = () => { n++; show(); };
+    if ($('#pv')) $('#pv').onclick = () => { n--; flipped = !graded; show(); };
+    if ($('#nx')) $('#nx').onclick = () => { n++; flipped = false; show(); };
     if ($('#y')) $('#y').onclick = () => { L.grade(prog, w, true); save(); n++; flipped = false; show(); };
     if ($('#n')) $('#n').onclick = () => { L.grade(prog, w, false); save(); again.push(w); words = words.concat([w]); n++; flipped = false; show(); };
   };
@@ -143,8 +164,17 @@ function flash(words, title, then, graded = true) {
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   onHome = false;
   const keep = stage && stage.type !== 'unit';
-  let s = null;
-  if (stage && (stage.type === 'review' || stage.type === 'daily')) {
+  let s = null, clozeMap = {};
+  if (stage && stage.type === 'daily2') {
+    const halfN = L.halfCount(words.length);
+    const snap = gate.resume.daily2;
+    if (snap && L.validResume(snap, (snap.keys || []).map(k => BYKEY[k]).filter(Boolean)) && snap.keys.length === halfN) {
+      s = snap; words = s.keys.map(k => BYKEY[k]); clozeMap = snap.cloze || {};
+    } else {
+      words = L.pickHalf(words.map(L.key)).map(k => BYKEY[k]);
+    }
+    pool = words;
+  } else if (stage && (stage.type === 'review' || stage.type === 'daily')) {
     // Snapshot base range + all weak words at session start; resume keeps that snapshot.
     const snap = L.resumeSnapshot(gate.resume[stage.id], words, BYKEY);
     if (snap) { s = gate.resume[stage.id]; words = snap; }
@@ -155,32 +185,72 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   if (!words.length) return home();
   if (!s) s = L.newSession(words.map(L.key));
   const rtypes = intro ? null : L.quizTypes(1000, false);
-  const persist = () => { if (keep && !(stage.type === 'daily' && (!gate.daily || gate.daily.day !== stage.day))) { gate.resume[stage.id] = s; saveGate(); } };
+  const persist = () => {
+    if (!keep) return;
+    if ((stage.type === 'daily' || stage.type === 'daily2') && (!gate.daily || gate.daily.day !== stage.day)) return;
+    if (stage.type === 'daily2') s.cloze = clozeMap;
+    gate.resume[stage.id] = s; saveGate();
+  };
   persist();
   const next = () => {
     if (!s.queue.length) {
       let result = null;
-      if (stage) { if (keep) delete gate.resume[stage.id]; result = stage.type === 'daily' ? L.recordDaily(gate, stage.day, s.total, s.missed.length) : L.recordAttempt(gate, stage.id, s.total, s.missed.length); saveGate(); }
+      if (stage) {
+        if (keep) delete gate.resume[stage.id];
+        if (stage.type === 'daily') {
+          result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 1);
+          if (result.perfect) { gate.daily.part1Keys = s.keys.slice(); saveGate(); return startDailyPart2(); }
+        } else if (stage.type === 'daily2') result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 2);
+        else result = L.recordAttempt(gate, stage.id, s.total, s.missed.length);
+        saveGate();
+      }
       return done(title, s.total, s.missed.map(k => BYKEY[k]), stage, result);
     }
     const { k, retry } = s.queue[0];
-    const q = stage ? L.buildQuestion(stage, k, s.qi, BYKEY) : { w: BYKEY[k], type: intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000], options: L.choices(BYKEY[k], pool) };
+    let q;
+    if (stage && stage.type === 'daily2') {
+      if (!s.curQ || s.curQ.k !== k) {
+        const items = (typeof CLOZE !== 'undefined' ? CLOZE[k] : null) || [];
+        q = L.buildClozeQuestion(BYKEY[k], pool, items, (gate.clozeLast || {})[k]);
+        s.curQ = { k, q }; clozeMap[k] = q.i;
+        gate.clozeLast = gate.clozeLast || {}; gate.clozeLast[k] = q.i;
+      } else q = s.curQ.q;
+    } else {
+      if (!s.curQ || s.curQ.k !== k) {
+        q = stage && stage.type !== 'daily2' ? L.buildQuestion(stage, k, s.qi, BYKEY) : { w: BYKEY[k], type: intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000], options: L.choices(BYKEY[k], pool) };
+        s.curQ = { k, q };
+      } else q = s.curQ.q;
+    }
     const w = q.w, type = q.type, opts = q.options;
+    const labelOf = o => type === 'cloze' ? o.fill : type === 'def2word' ? o.w : o.d;
+    const rawOf = o => type === 'cloze' ? o.w : o;
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
       <form id="tf" class="row"><input type="text" id="ti" autocomplete="off" autocapitalize="off" aria-label="Your answer"><button>Check</button><button type="button" class="ghost" id="hint">Show first letter</button></form>`;
+    else if (type === 'cloze') body = `<p class="muted">Choose the word that best completes the sentence.</p>
+      <p class="word" style="font-size:1.15rem;font-weight:500">${esc(q.prompt).replace('_____', '______')}</p>
+      <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(o.fill)}</button>`).join('')}</div>`;
     else body = `<p class="muted">${type === 'def2word' ? 'Which word means:' : 'What does this word mean?'}</p>
       ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>` : `<div class="word">${esc(w.w)}</div>`}
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
+    const reviewBtn = (stage && stage.type === 'unit') ? '<button class="ghost" id="peek">Review words</button>' : '';
     app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
-      <div class="row">${soundBtn()}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
+      <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
     $('#pause').onclick = home;
+    if ($('#peek')) $('#peek').onclick = () => {
+      const unitWords = stage.words;
+      app.innerHTML = `<section class="card"><h2>Review these words</h2><p class="muted">This does not change your quiz progress or score. Return to the same question when you are ready.</p>
+        <table><tr><th>Word</th><th>Meaning</th></tr>${unitWords.map(x => `<tr><td><b>${esc(x.w)}</b> <span class="pos">${x.p}</span></td><td>${esc(x.d)}</td></tr>`).join('')}</table>
+        <p><button class="alt" id="backq">Return to quiz</button></p></section>`;
+      $('#backq').onclick = next;
+    };
     let answered = false;
     const answer = (ok, chosen, typed) => {
       if (answered) return; answered = true; if (ok) ding();
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
-      L.answerSession(s, ok); persist();
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : ''}
+      L.answerSession(s, ok); s.curQ = null; persist();
+      const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${filled}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
       $('#go').focus(); $('#go').onclick = next;
@@ -188,21 +258,29 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     if (type === 'type') { $('#ti').focus(); $('#hint').onclick = () => { $('#ti').value = w.w[0]; $('#ti').focus(); };
       $('#tf').onsubmit = e => { e.preventDefault(); const v = $('#ti').value; answer(L.checkTyped(v, w), null, v); }; }
     else app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
-      const ok = opts[+b.dataset.i] === w; b.classList.add(ok ? 'ok' : 'no');
-      app.querySelectorAll('.opts button')[opts.indexOf(w)].classList.add('ok'); answer(ok, opts[+b.dataset.i]); });
+      const chosen = rawOf(opts[+b.dataset.i]); const ok = chosen === w;
+      b.classList.add(ok ? 'ok' : 'no');
+      const ci = opts.findIndex(o => rawOf(o) === w); if (ci >= 0) app.querySelectorAll('.opts button')[ci].classList.add('ok');
+      answer(ok, chosen); });
   };
   next();
 }
 
 function done(title, total, m, stage, result) {
   const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
-  const verdict = !result ? '' : stage && stage.type === 'daily' ? (result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>' : result.perfect ? '<p class="fb ok">Daily Review done — 100% on the first try. Your path is open again.</p>' : `<p class="fb no">${result.pct}% on the first try. Daily Review needs 100% in one run. Retake it as many times as you like.</p>`) : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
-    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`;
+  const dailyMsg = result && (stage && (stage.type === 'daily' || stage.type === 'daily2')) ? (
+    result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>'
+    : stage.type === 'daily' && !result.perfect ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2. Retake Part 1 as many times as you like.</p>`
+    : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 100% on the first try in both parts. Your path is open again.</p>'
+    : stage.type === 'daily2' ? `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 100% on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`
+    : '') : '';
+  const verdict = dailyMsg || (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
+    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`);
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
    ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
    <div class="row">${stage ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">Back to path</button></div></section>`;
   $('#h').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
-  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : startStage(stage, idx);
+  if ($('#again')) $('#again').onclick = () => (stage.type === 'daily' || stage.type === 'daily2') ? startDaily() : startStage(stage, idx);
 }
 
 function backup() {

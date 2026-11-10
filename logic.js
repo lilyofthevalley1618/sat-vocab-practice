@@ -125,6 +125,11 @@ function explainWrong(type, target, chosen, typed, allWords) {
     if (chosen.d.toLowerCase() === target.d.toLowerCase()) return `"${chosen.w}" has the same listed definition. The expected answer was "${target.w}".`;
     return `You picked "${chosen.w}", which means: ${chosen.d}. The definition shown ("${target.d}") belongs to "${target.w}".`;
   }
+  if (type === 'cloze' && chosen) {
+    if (chosen.d.toLowerCase() === target.d.toLowerCase() && chosen.w.toLowerCase() !== target.w.toLowerCase())
+      return `"${chosen.w}" is listed with a similar meaning, but the sentence is written for "${target.w}": ${target.d}`;
+    return `You picked "${chosen.w}", which means: ${chosen.d} The sentence needs a word meaning "${target.d}": "${target.w}".`;
+  }
   if (type === 'type') {
     const n = normalize(typed || '');
     if (!n) return `No answer was entered. The word is "${target.w}". ${T}`;
@@ -166,17 +171,25 @@ function ensureDaily(gate, prog, now = Date.now()) {
   const d = laDay(now);
   if (!gate.daily || gate.daily.day !== d) {
     const words = Object.keys(prog).sort();
-    gate.daily = { day: d, words, passed: words.length === 0 };
-    delete gate.resume.daily; return true;
+    gate.daily = { day: d, words, passed: words.length === 0, part1: false };
+    if (gate.resume) { delete gate.resume.daily; delete gate.resume.daily2; }
+    return true;
   }
   return false;
 }
 const dailyBlocks = gate => !!(gate.daily && !gate.daily.passed);
-function recordDaily(gate, day, total, firstTryMisses) {
-  if (!gate.daily || gate.daily.day !== day) return { perfect: false, stale: true };
+function recordDaily(gate, day, total, firstTryMisses, part = 1) {
+  if (!gate.daily || gate.daily.day !== day) return { perfect: false, stale: true, part };
   const perfect = total > 0 && firstTryMisses === 0;
-  if (perfect) gate.daily.passed = true;
-  return { pct: Math.round((total - firstTryMisses) / total * 100), perfect };
+  const pct = Math.round((total - firstTryMisses) / total * 100);
+  if (part === 1) {
+    gate.daily.part1 = perfect;
+    if (!perfect) gate.daily.passed = false;
+  } else if (part === 2) {
+    if (perfect && gate.daily.part1) gate.daily.passed = true;
+    else gate.daily.passed = false;
+  }
+  return { pct, perfect, part };
 }
 // Every weak word (missed at least once), no cap.
 const allWeak = (prog, words) => words.filter(w => prog[key(w)] && prog[key(w)].wrong > 0);
@@ -203,6 +216,61 @@ function quizTypes(n, intro, rnd = Math.random) {
   const off = Math.floor(rnd() * 2);
   return Array.from({ length: n }, (_, i) => intro ? ['word2def', 'def2word'][(i + off) % 2] : ['def2word', 'word2def', 'type'][Math.floor(rnd() * 3)]);
 }
+
+// Daily Review Part 2: half of today's words (round up, at least 1), fill-in sentences.
+const halfCount = n => Math.max(1, Math.ceil(n / 2));
+function pickHalf(keys, rnd = Math.random) { return shuffle(keys, rnd).slice(0, halfCount(keys.length)); }
+function pickCloze(items, last, rnd = Math.random) {
+  const opts = (last != null && items.length > 1) ? items.filter((_, i) => i !== last) : items;
+  const item = opts[Math.floor(rnd() * opts.length)];
+  return { ...item, i: items.indexOf(item) };
+}
+const IRREG = { withdraw: { past: 'withdrew', ing: 'withdrawing', s: 'withdraws' }, foretell: { past: 'foretold', ing: 'foretelling', s: 'foretells' }, overcome: { past: 'overcame', ing: 'overcoming', s: 'overcomes' } };
+function inflectForm(head, form) {
+  const h = head, k = head.toLowerCase();
+  if (IRREG[k] && IRREG[k][form]) return IRREG[k][form];
+  if (form === 'base') return h;
+  if (form === 'past') {
+    if (/e$/i.test(h)) return h + 'd';
+    if (/[^aeiou]y$/i.test(h)) return h.slice(0, -1) + 'ied';
+    return h + 'ed';
+  }
+  if (form === 'ing') {
+    if (/ie$/i.test(h)) return h.slice(0, -2) + 'ying';
+    if (/e$/i.test(h) && !/ee$/i.test(h)) return h.slice(0, -1) + 'ing';
+    return h + 'ing';
+  }
+  if (form === 's') {
+    if (/(s|x|z|ch|sh)$/i.test(h)) return h + 'es';
+    if (/[^aeiou]y$/i.test(h)) return h.slice(0, -1) + 'ies';
+    return h + 's';
+  }
+  return h;
+}
+function inferForm(fill, head) {
+  const f = fill, h = head;
+  if (f === h || f.toLowerCase() === h.toLowerCase()) return f[0] === f[0].toUpperCase() && f !== f.toLowerCase() && f[0] === h[0] ? 'head' : (f === h.toLowerCase() ? 'lower' : 'head');
+  if (f === inflectForm(h, 'past') || f === inflectForm(h.toLowerCase(), 'past')) return 'past';
+  if (f === inflectForm(h, 'ing') || f === inflectForm(h.toLowerCase(), 'ing')) return 'ing';
+  if (f === inflectForm(h, 's') || f === inflectForm(h.toLowerCase(), 's')) return 's';
+  return 'head';
+}
+function matchFill(other, fill, target) {
+  const form = inferForm(fill, target.w);
+  if (form === 'lower') return other.w.toLowerCase();
+  if (form === 'head') return other.w;
+  const out = inflectForm(other.w, form);
+  return fill[0] === fill[0].toLowerCase() ? out[0].toLowerCase() + out.slice(1) : out;
+}
+function buildClozeQuestion(word, pool, items, last, rnd = Math.random) {
+  const picked = pickCloze(items, last, rnd);
+  const raw = choices(word, pool, 4, rnd);
+  const options = raw.map(o => ({ w: o, fill: o === word ? picked.fill : matchFill(o, picked.fill, word) }));
+  // If two fills collide, keep the correct one and drop the duplicate (rare).
+  const seen = new Set(); const unique = [];
+  for (const o of options) { const k = o.fill.toLowerCase(); if (seen.has(k) && o.w !== word) continue; if (seen.has(k) && o.w === word) { const i = unique.findIndex(x => x.fill.toLowerCase() === k); if (i >= 0) unique.splice(i, 1); } seen.add(k); unique.push(o); }
+  return { w: word, type: 'cloze', prompt: picked.s, fill: picked.fill, i: picked.i, options: unique };
+}
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
 function exportData(prog, gate, grammar) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} }); }
 function importData(text) {
@@ -215,7 +283,8 @@ function importData(text) {
     const g = o.gate;
     if (typeof g !== 'object' || ['passed', 'best', 'resume'].some(f => g[f] != null && typeof g[f] !== 'object')) throw new Error('Bad unlock data');
     gate = { passed: g.passed || {}, best: g.best || {}, resume: g.resume || {} };
-    if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed };
+    if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) { gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed, part1: !!g.daily.part1 }; if (Array.isArray(g.daily.part1Keys)) gate.daily.part1Keys = g.daily.part1Keys; }
+    if (g.clozeLast && typeof g.clozeLast === 'object') gate.clozeLast = g.clozeLast;
     for (const s of Object.values(gate.resume)) if (!s || !Array.isArray(s.queue) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) throw new Error('Bad paused test');
   }
   let grammar = null; // optional; older backups have none and keep current grammar scores
@@ -225,5 +294,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
