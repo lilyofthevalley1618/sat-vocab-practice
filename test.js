@@ -131,6 +131,10 @@ const P2IDS = ['combine', 'transitions', 'trans-contra', 'trans-similar', 'dash'
 assert.deepStrictEqual(GR.filter(t => t.part === 1).map(t => t.id), P1IDS);
 assert.deepStrictEqual(GR.filter(t => t.part === 2).map(t => t.id), P2IDS);
 assert.deepStrictEqual(GR.map(t => t.id), P1IDS.concat(P2IDS));
+assert.strictEqual(GR[0].id, 'tense');
+assert.strictEqual(GR[0].rule, 'Keep verbs consistent in tense or form throughout a sentence. Surrounding sentences can provide context clues for the proper tense. Shift tense only when the sentence signals a real change in time.');
+assert(GR[0].note && /had left before he arrived/i.test(GR[0].note) && /has lived here for 3 years/i.test(GR[0].note));
+
 GR.forEach(x => {
   assert(x.title && x.rule && x.trap && x.before && x.after && x.before !== x.after && x.source, x.id);
   assert(x.part === 1 || x.part === 2, x.id);

@@ -6,6 +6,7 @@ const GRAMMAR = [
     "source": "A#1",
     "title": "Keep verb tenses consistent",
     "rule": "Keep verbs consistent in tense or form throughout a sentence. Surrounding sentences can provide context clues for the proper tense. Shift tense only when the sentence signals a real change in time.",
+    "note": "The main idea is to keep the same tense as the rest of the sentence: if it is in the past, stay in the past; if it is in the present, stay in the present.\n\nHad + verb (past perfect) means it happened before another past event: She had left before he arrived.\n\nHas/have + verb (present perfect) means it started in the past and is still true or still going on now: She has lived here for 3 years.",
     "trap": "A tense that sounds fine alone but clashes with another verb in the sentence or with a time clue such as \"last week\" or \"in the future.\"",
     "before": "Last week, Frank rented a car and drives to Las Vegas.",
     "after": "Last week, Frank rented a car and drove to Las Vegas.",

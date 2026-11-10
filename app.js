@@ -75,7 +75,7 @@ function grammarView() {
   };
   const p1 = [], p2 = [];
   GPATH.forEach((it, idx) => (idx <= 9 ? p1 : p2).push(card(it, idx)));
-  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p class="muted">28 rules tested in the Digital SAT's Reading and Writing section (Standard English Conventions and transitions). Part 1 is the 9 rules from PrepScholar's <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a>, in that guide's order, followed by a 60-question exam (100% on the first try to continue; unlimited retakes). Part 2 covers the remaining topics from <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a> (28 topics in all, with no duplicates of the 9). A review of about 30 questions comes after every 5 Part 2 rules (100% to continue). A final exam on all 28 rules is at the end. Each rule has 10–12 practice questions. This path is separate from your vocab path. The daily grammar review on the Daily Review tab is required before you start a new (not yet passed) grammar step that day; it does not gate vocab. Explanations and practice here are original; rule wording and official examples follow those guides. Not affiliated with PrepScholar or College Board.</p>${banner}</section>
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p>Part 1: the 9 must-know rules, then a 60-question exam. Part 2: the rest, with a review every 5 rules and a final exam. 100% to move on.</p><p class="muted">Sources: <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a> · <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a></p>${banner}</section>
    <h2>Part 1: 9 must-know rules</h2><div class="units">${p1.join('')}</div>
    <h2>Part 2: Remaining rules</h2><div class="units">${p2.join('')}</div>`;
   wireTabs(); app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => startGramStep(GPATH[+b.dataset.s], +b.dataset.s));
@@ -91,7 +91,8 @@ function startGramStep(it, idx) {
 }
 function topicView(it, idx) {
   const t = it.topic;
-  app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)}</h2><p><b>Rule:</b> ${esc(t.rule)}</p><p><b>Common trap:</b> ${esc(t.trap)}</p>
+  const note = t.note ? `<p><b>In plain language:</b> ${esc(t.note).replace(/\n/g, '<br>')}</p>` : '';
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)}</h2>${note}<p><b>Rule:</b> ${esc(t.rule)}</p><p><b>Common trap:</b> ${esc(t.trap)}</p>
    <p class="fb no"><b>Before:</b> ${esc(t.before)}</p><p class="fb ok"><b>After:</b> ${esc(t.after)}</p>
    <div class="row"><button class="alt" id="gp">Practice (${t.qs.length} questions)</button><button class="ghost" id="gb">Back to path</button></div></section>`;
   wireTabs(); $('#gb').onclick = grammarView; $('#gp').onclick = () => runGramQuiz(it);
