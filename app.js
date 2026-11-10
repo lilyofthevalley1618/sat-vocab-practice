@@ -114,16 +114,20 @@ function dailyView() {
         <div class="row" style="margin-top:.5rem">${p2btn}</div></div>
     </div>`;
   }
-  let recall = '';
-  if (L.recallUnlocked(PATH, gate)) {
-    const pausedR = gate.resume.recall, bestR = gate.best.recall;
-    const nR = (pausedR && pausedR.total) || L.RECALL_SIZE;
-    recall = `<section class="card"><h2>Recent Words Recall</h2>
-      <p>Optional typing practice once you reach Unit 9. About 70% of the words come from your last 2–3 units (the 20–30 most recently learned), and the rest from older words, with weak words first. Type the word from its definition, or type the definition from the word. This does not gate your path or Daily Review.</p>
-      <p class="muted">${pausedR ? `Paused at ${pausedR.done}/${pausedR.total}.` : bestR != null ? `Best first-try score: ${bestR}%.` : `About ${nR} questions, mixed typing.`}</p>
-      <button class="alt" id="recall">${pausedR ? 'Resume recall' : 'Start recall'}</button></section>`;
-  }
-  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}${recall}`;
+  const recallOn = L.recallUnlocked(PATH, gate);
+  const pausedR = gate.resume.recall, bestR = gate.best.recall;
+  const nR = (pausedR && pausedR.total) || L.RECALL_SIZE;
+  const recallStatus = !recallOn ? '🔒 Unlocks at Unit 9' : pausedR ? `Paused at ${pausedR.done}/${pausedR.total}` : bestR != null ? `Best first-try score: ${bestR}%` : `About ${nR} questions, mixed typing`;
+  const recallBtn = recallOn ? `<button class="alt" id="recall">${pausedR ? 'Resume recall' : 'Start recall'}</button>` : '<button disabled>Unlocks at Unit 9</button>';
+  const meaning = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:.7rem">
+    <div class="unit${recallOn ? '' : ' locked'}"><h3>Meaning</h3><small>Optional but recommended. Recent Words Recall: type the word from its definition, or type the definition from the word, focused on your last 2–3 units (about 70% recent, 30% older, weak words first). This does not gate your path or Daily Review.</small><small>${recallStatus}</small>
+      <div class="row" style="margin-top:.5rem">${recallBtn}</div></div>
+  </div>`;
+  const grammar = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:.7rem">
+    <div class="unit locked"><h3>Grammar</h3><small>Coming soon. A daily grammar review will go here after the grammar materials are rebuilt. It does not gate your path or Daily Review.</small><small>Coming soon</small>
+      <div class="row" style="margin-top:.5rem"><button disabled>Coming soon</button></div></div>
+  </div>`;
+  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}${meaning}${grammar}`;
   wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall;
 }
 function home() {
