@@ -28,15 +28,14 @@ let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
 const startDaily = () => {
   dayCheck();
-  if (gate.daily.passed) return dailyView();
-  if (gate.resume.daily2 || gate.daily.part1) return startDailyPart2();
+  if (gate.daily.passed || gate.daily.part1) return dailyView();
   const st = dailyStage();
   if (st.words.length || gate.resume.daily) quiz(st.words, 'Daily Review, Part 1', true, st.words, st);
   else dailyView();
 };
 const startDailyPart2 = () => {
   dayCheck();
-  if (!gate.daily || gate.daily.passed || (gate.daily.day !== L.laDay())) return dailyView();
+  if (!gate.daily || gate.daily.passed || !gate.daily.part1 || (gate.daily.day !== L.laDay())) return dailyView();
   const baseKeys = gate.daily.part1Keys || L.withWeak(dailyStage().words, prog, WORDS).map(L.key);
   const st = { type: 'daily2', id: 'daily2', day: gate.daily.day, words: baseKeys.map(k => BYKEY[k]).filter(Boolean) };
   quiz(st.words, 'Daily Review, Part 2', false, st.words, st);
@@ -87,13 +86,27 @@ function dailyView() {
   const extra = nToday - dly.words.length;
   const half = nToday ? L.halfCount(nToday) : 0;
   const paused1 = gate.resume.daily, paused2 = gate.resume.daily2;
-  let body;
-  if (!dly.words.length && dly.passed && !nToday) body = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
-  else if (dly.passed) body = `<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>`;
-  else if (dly.part1) body = `<p>Part 1 is done. Part 2 still needed: ${paused2 ? `paused at ${paused2.done}/${paused2.total}` : half + ' fill-in sentences'} (half of today's words). You need 100% on the first try in Part 2 as well.</p><button class="alt" id="daily">${paused2 ? 'Resume Part 2' : 'Start Part 2'}</button>`;
-  else body = `<p>${nToday} words: ${dly.words.length} learned before today${extra ? ` plus ${extra} weak word${extra > 1 ? 's' : ''} from today` : ''}. Daily Review has two parts. Part 1 checks meanings for all of today's words. Part 2 uses half of those words (${half || '—'}) in fill-in-the-blank sentences. You need 100% on the first try in <b>both</b> parts.${paused1 ? ` Part 1 is paused at ${paused1.done}/${paused1.total}.` : ''}</p><button class="alt" id="daily">${paused1 ? 'Resume Part 1' : 'Start Daily Review'}</button>`;
-  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${body}</section>`;
-  wireTabs(); if ($('#daily')) $('#daily').onclick = startDaily;
+  let intro, parts = '';
+  if (!dly.words.length && dly.passed && !nToday) intro = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
+  else {
+    intro = dly.passed
+      ? '<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>'
+      : `<p>${nToday} words: ${dly.words.length} learned before today${extra ? ` plus ${extra} weak word${extra > 1 ? 's' : ''} from today` : ''}. You need 100% on the first try in <b>both</b> parts to finish today\'s Daily Review.</p>`;
+    const p1done = !!(dly.part1 || dly.passed);
+    const p1status = p1done ? '✓ Done' : paused1 ? `Paused at ${paused1.done}/${paused1.total}` : 'Open';
+    const p1btn = p1done ? '' : `<button class="alt" id="daily1">${paused1 ? 'Resume Part 1' : 'Start Part 1'}</button>`;
+    const p2open = p1done;
+    const p2status = dly.passed ? '✓ Done' : !p2open ? '🔒 Locked until you finish Part 1' : paused2 ? `Paused at ${paused2.done}/${paused2.total}` : 'Open';
+    const p2btn = dly.passed ? '' : p2open ? `<button class="alt" id="daily2">${paused2 ? 'Resume Part 2' : 'Start Part 2'}</button>` : '<button disabled>Locked</button>';
+    parts = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+      <div class="unit"><h3>Part 1: Meanings</h3><small>Check the meaning of all of today\'s words.</small><small>${p1status}</small>
+        <div class="row" style="margin-top:.5rem">${p1btn}</div></div>
+      <div class="unit${p2open ? '' : ' locked'}"><h3>Part 2: Fill in the blank</h3><small>${p2open ? `${half} fill-in sentences (a random half of today\'s words).` : 'Unlocks after you get 100% on Part 1.'}</small><small>${p2status}</small>
+        <div class="row" style="margin-top:.5rem">${p2btn}</div></div>
+    </div>`;
+  }
+  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}`;
+  wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2;
 }
 function home() {
   onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
@@ -199,7 +212,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
         if (keep) delete gate.resume[stage.id];
         if (stage.type === 'daily') {
           result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 1);
-          if (result.perfect) { gate.daily.part1Keys = s.keys.slice(); saveGate(); return startDailyPart2(); }
+          if (result.perfect) gate.daily.part1Keys = s.keys.slice();
         } else if (stage.type === 'daily2') result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 2);
         else result = L.recordAttempt(gate, stage.id, s.total, s.missed.length);
         saveGate();
@@ -268,19 +281,21 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
 
 function done(title, total, m, stage, result) {
   const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
-  const dailyMsg = result && (stage && (stage.type === 'daily' || stage.type === 'daily2')) ? (
+  const isDaily = stage && (stage.type === 'daily' || stage.type === 'daily2');
+  const dailyMsg = result && isDaily ? (
     result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>'
-    : stage.type === 'daily' && !result.perfect ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2. Retake Part 1 as many times as you like.</p>`
+    : stage.type === 'daily' && result.perfect ? '<p class="fb ok">Part 1 done — 100% on the first try. Part 2: Fill in the blank is now unlocked on the Daily Review tab.</p>'
+    : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
     : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 100% on the first try in both parts. Your path is open again.</p>'
-    : stage.type === 'daily2' ? `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 100% on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`
-    : '') : '';
+    : `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 100% on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`) : '';
   const verdict = dailyMsg || (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
     : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`);
+  const canRetake = stage && !(isDaily && result && result.perfect);
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
    ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
-   <div class="row">${stage ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">Back to path</button></div></section>`;
-  $('#h').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
-  if ($('#again')) $('#again').onclick = () => (stage.type === 'daily' || stage.type === 'daily2') ? startDaily() : startStage(stage, idx);
+   <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${isDaily ? 'Back to Daily Review' : 'Back to path'}</button>${isDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
+  $('#h').onclick = isDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
+  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : startStage(stage, idx);
 }
 
 function backup() {
