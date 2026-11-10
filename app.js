@@ -13,8 +13,9 @@ const getCtx = () => { if (!actx) { const C = window.AudioContext || window.webk
 const ding = () => L.playDing(soundOn, getCtx);
 const soundBtn = () => `<button class="ghost" id="snd" aria-pressed="${soundOn}" title="Play a ding on correct answers">Sound: ${soundOn ? 'On' : 'Off'}</button>`;
 document.addEventListener('click', e => { if (e.target && e.target.id === 'snd') { soundOn = !soundOn; localStorage.setItem(SNDKEY, soundOn ? 'on' : 'off'); e.target.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); e.target.setAttribute('aria-pressed', soundOn); } });
-const RKEY = 'satGrammar.v1'; let gram = JSON.parse(localStorage.getItem(RKEY) || '{}'); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
-const dayCheck = () => { if (L.ensureDaily(gate, prog)) { saveGate(); if (onHome) home(); } };  // re-renders the Path tab on a new day
+const RKEY = 'satGrammar.v1'; let gram = Object.assign({ passed: {}, resume: {} }, L.migrateGrammar(JSON.parse(localStorage.getItem(RKEY) || '{}'))); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
+const GPATH = L.makeGrammarPath(GRAMMAR), BYGRAM = Object.fromEntries(GRAMMAR.map(t => [t.id, t]));
+const dayCheck = () => { let ch = false; if (L.ensureDaily(gate, prog)) { saveGate(); ch = true; } if (L.ensureDailyGrammar(gram, GPATH)) { saveGram(); ch = true; } if (ch && onHome) home(); };  // re-renders the Path tab on a new day
 dayCheck(); setInterval(dayCheck, 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && dayCheck());
 const dailyStage = () => { const ws = gate.daily.words.map(k => BYKEY[k]).filter(Boolean); return { type: 'daily', id: 'daily', day: gate.daily.day, words: ws, pool: ws }; };
@@ -49,45 +50,135 @@ const startRecall = () => {
   if (!words.length) return dailyView();
   quiz(words, 'Recent Words Recall', false, words, { type: 'recall', id: 'recall', words });
 };
-const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
+const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${(L.dailyBlocks(gate) || L.grammarDailyBlocks(gram)) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
 const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
-// Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
+// Grammar Rules tab: a gated path separate from the vocab path and vocab Daily Review.
+const gLabel = it => it.type === 'rule' ? it.topic.title : it.type === 'exam' ? 'Part 1 Exam' : it.type === 'review' ? 'Part 2 Review ' + (Number(String(it.id).replace('g-rev', '')) + 1) : 'Grammar Final Exam';
+const gSub = it => {
+  if (it.type === 'rule') return it.topic.rule.length > 90 ? it.topic.rule.slice(0, 90) + '…' : it.topic.rule;
+  if (it.type === 'exam') return '60 questions on the 9 must-know rules. You need 100% on the first try to continue.';
+  if (it.type === 'review') return `${it.n} questions on: ${it.topics.map(t => t.title).join('; ')}. You need 100% on the first try to continue.`;
+  return '70 questions on all 28 rules. You need 100% on the first try to finish the path.';
+};
 function grammarView() {
   onHome = false;
-  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p class="muted">${GRAMMAR.length} rules tested in the Digital SAT's Reading and Writing section (Standard English Conventions and transitions). On the Digital SAT these come as short single-passage questions, not long paper-test passages. Explanations and practice here are original; topics drawn from PrepScholar's <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a> and <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a>. Not affiliated with PrepScholar or College Board.</p></section>
-   <div class="units">${GRAMMAR.map((t, i) => `<div class="unit"><h3>${i + 1}. ${esc(t.title)}</h3><small>${esc(t.rule.slice(0, 80))}…</small><small>${gram[t.id] ? `Best ${gram[t.id].best}%` : 'Not practiced yet'}</small>
-     <div class="row" style="margin-top:.5rem"><button data-g="${i}">Open</button></div></div>`).join('')}</div>`;
-  wireTabs(); app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => topicView(+b.dataset.g));
+  L.ensureDailyGrammar(gram, GPATH);
+  const dailyDue = L.grammarDailyBlocks(gram);
+  const banner = dailyDue ? `<p class="fb no">Today's grammar review is on the <b>Daily Review</b> tab. Finish it before you start a new grammar step. It does not gate your vocab path.</p>` : '';
+  const card = (it, idx) => {
+    const open = L.grammarStepOpen(GPATH, idx, gram), pass = !!(gram.passed && gram.passed[it.id]);
+    const best = it.type === 'rule' ? (gram[it.id] && gram[it.id].best) : (gram.gbest && gram.gbest[it.id]);
+    const res = gram.resume && gram.resume[it.id];
+    const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : (dailyDue && L.isUnlocked(GPATH, idx, gram) ? "🔒 Finish today's grammar review first" : '🔒 Locked');
+    const btn = !open ? '<button disabled>Locked</button>' : res && L.validGramResume(res, res.total) ? `<button data-s="${idx}">Resume (${res.done}/${res.total})</button>` : `<button data-s="${idx}">${it.type === 'rule' ? (pass ? 'Practice' : 'Learn') : (pass ? 'Retake' : 'Start')}</button>`;
+    return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${idx + 1}. ${esc(gLabel(it))}</h3><small>${esc(gSub(it))}</small><small>${status}</small><div class="row" style="margin-top:.5rem">${btn}</div></div>`;
+  };
+  const p1 = [], p2 = [];
+  GPATH.forEach((it, idx) => (idx <= 9 ? p1 : p2).push(card(it, idx)));
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p class="muted">28 rules tested in the Digital SAT's Reading and Writing section (Standard English Conventions and transitions). Part 1 is the 9 rules from PrepScholar's <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a>, in that guide's order, followed by a 60-question exam (100% on the first try to continue; unlimited retakes). Part 2 covers the remaining topics from <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a> (28 topics in all, with no duplicates of the 9). A review of about 30 questions comes after every 5 Part 2 rules (100% to continue). A final exam on all 28 rules is at the end. Each rule has 10–12 practice questions. This path is separate from your vocab path. The daily grammar review on the Daily Review tab is required before you start a new (not yet passed) grammar step that day; it does not gate vocab. Explanations and practice here are original; rule wording and official examples follow those guides. Not affiliated with PrepScholar or College Board.</p>${banner}</section>
+   <h2>Part 1: 9 must-know rules</h2><div class="units">${p1.join('')}</div>
+   <h2>Part 2: Remaining rules</h2><div class="units">${p2.join('')}</div>`;
+  wireTabs(); app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => startGramStep(GPATH[+b.dataset.s], +b.dataset.s));
 }
-function topicView(i) {
-  const t = GRAMMAR[i];
+function startGramStep(it, idx) {
+  if (!L.grammarStepOpen(GPATH, idx, gram)) return grammarView();
+  if (it.type === 'rule') {
+    const res = gram.resume && gram.resume[it.id];
+    if (res && L.validGramResume(res, it.topic.qs.length)) return runGramQuiz(it);
+    return topicView(it, idx);
+  }
+  runGramQuiz(it);
+}
+function topicView(it, idx) {
+  const t = it.topic;
   app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)}</h2><p><b>Rule:</b> ${esc(t.rule)}</p><p><b>Common trap:</b> ${esc(t.trap)}</p>
    <p class="fb no"><b>Before:</b> ${esc(t.before)}</p><p class="fb ok"><b>After:</b> ${esc(t.after)}</p>
-   <div class="row"><button class="alt" id="gp">Practice (${t.qs.length} questions)</button><button class="ghost" id="gb">All rules</button></div></section>`;
-  wireTabs(); $('#gb').onclick = grammarView; $('#gp').onclick = () => gramQuiz(i, t.qs.map((_, n) => n), true);
+   <div class="row"><button class="alt" id="gp">Practice (${t.qs.length} questions)</button><button class="ghost" id="gb">Back to path</button></div></section>`;
+  wireTabs(); $('#gb').onclick = grammarView; $('#gp').onclick = () => runGramQuiz(it);
 }
-function gramQuiz(i, list, scored) {
-  const t = GRAMMAR[i]; let n = 0, right = 0; const missed = [];
-  const show = () => {
-    if (n >= list.length) {
-      const pct = scored ? L.recordGrammar(gram, t.id, list.length, right) : null; if (scored) saveGram();
-      app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)} — done</h2><p>${right} of ${list.length} right${scored ? ` (${pct}%; best ${gram[t.id].best}%)` : ''}.</p>
-        <div class="row">${missed.length ? '<button class="alt" id="gr">Retry missed</button>' : ''}<button id="gt">Back to rule</button><button class="ghost" id="ga">All rules</button></div></section>`;
-      wireTabs(); $('#gt').onclick = () => topicView(i); $('#ga').onclick = grammarView; if ($('#gr')) $('#gr').onclick = () => gramQuiz(i, missed.slice(), false);
-      return;
+function startDailyGrammar() {
+  dayCheck();
+  const gd = gram.daily;
+  if (!gd || !gd.keys.length || gd.passed) return dailyView();
+  let s = gram.resume && gram.resume.daily;
+  if (!L.validGramResume(s, s && s.total)) {
+    const raw = L.pickDailyGrammar(BYGRAM, gd.keys, 10);
+    if (!raw.length) return dailyView();
+    const keyed = raw.map((q, i) => Object.assign({}, q, { k: 'daily:' + i }));
+    s = L.newSession(keyed.map(q => q.k));
+    s.questions = Object.fromEntries(keyed.map(q => [q.k, q]));
+  }
+  gram.resume.daily = s; saveGram();
+  showGramQ({ type: 'gdaily', id: 'daily', title: 'Daily grammar review' }, s);
+}
+function runGramQuiz(it) {
+  const expectedN = it.type === 'rule' ? it.topic.qs.length : it.n;
+  let s = gram.resume && gram.resume[it.id];
+  if (!L.validGramResume(s, expectedN)) {
+    const raw = it.type === 'rule' ? it.topic.qs.slice() : L.buildGrammarExam(it.topics, it.n);
+    const keyed = raw.map((q, i) => Object.assign({}, q, { k: it.id + ':' + i }));
+    s = L.newSession(keyed.map(q => q.k));
+    s.questions = Object.fromEntries(keyed.map(q => [q.k, q]));
+  }
+  gram.resume = gram.resume || {}; gram.resume[it.id] = s; saveGram();
+  showGramQ(it, s);
+}
+function showGramQ(it, s) {
+  const isDaily = it.type === 'gdaily';
+  const persist = () => { gram.resume = gram.resume || {}; gram.resume[it.id] = s; saveGram(); };
+  const back = () => isDaily ? dailyView() : grammarView();
+  const titleOf = () => isDaily ? 'Daily grammar review' : (it.type === 'rule' ? it.topic.title : gLabel(it));
+  const finish = () => {
+    delete gram.resume[it.id];
+    let result;
+    if (isDaily) {
+      if (gram.daily && gram.daily.day === L.laDay()) {
+        result = { pct: s.total ? Math.round((s.total - s.missed.length) / s.total * 100) : 0, perfect: s.missed.length === 0, stale: false };
+        if (result.perfect) gram.daily.passed = true;
+      } else result = { stale: true, pct: 0, perfect: false };
+    } else {
+      if (it.type === 'rule') L.recordGrammar(gram, it.id, s.total, s.total - s.missed.length);
+      result = L.recordGrammarAttempt(gram, it.id, s.total, s.missed.length);
     }
-    const q = t.qs[list[n]];
-    app.innerHTML = tabs('grammar') + `<section class="card"><p class="muted">${esc(t.title)} · ${n + 1}/${list.length}</p><p><b>${esc(q.q)}</b></p>
-      <div class="opts">${q.o.map((o, k) => `<button data-k="${k}">${esc(o)}</button>`).join('')}</div><div id="fb"></div></section>`;
-    wireTabs();
+    saveGram();
+    const nxt = !isDaily ? GPATH[GPATH.findIndex(x => x.id === it.id) + 1] : null;
+    const verdict = result.stale
+      ? 'A new day started, so this run no longer counts. Start today\'s grammar review.'
+      : result.perfect
+        ? (isDaily ? 'Daily grammar review done — 100% on the first try. You can continue new grammar today. This does not gate your vocab path.'
+          : `100% on the first try — ${nxt ? `<b>${esc(gLabel(nxt))}</b> is unlocked.` : 'you finished the grammar path!'}`)
+        : isDaily
+          ? `${result.pct}% on the first try. You need 100% before you continue new grammar today. Retake as many times as you like. This does not gate your vocab path.`
+          : `${result.pct}% on the first try. You need 100% to unlock the next step${gram.passed[it.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.`;
+    const canRetake = !(isDaily && result.perfect);
+    app.innerHTML = `<section class="card"><h2>${esc(titleOf())} — finished</h2><p>${s.total - s.missed.length} of ${s.total} right on the first try.</p>
+      <p class="fb ${result.stale || !result.perfect ? 'no' : 'ok'}">${verdict}</p>
+      <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}<button id="h">${isDaily ? 'Back to Daily Review' : 'Back to grammar path'}</button>${isDaily ? '<button class="ghost" id="hg">Back to grammar path</button>' : ''}</div></section>`;
+    $('#h').onclick = back; if ($('#hg')) $('#hg').onclick = grammarView;
+    if ($('#again')) $('#again').onclick = () => isDaily ? startDailyGrammar() : runGramQuiz(it);
+  };
+  const next = () => {
+    if (!s.queue.length) return finish();
+    const { k, retry } = s.queue[0];
+    const q = s.questions[k];
+    const ruleTag = q.title && it.type !== 'rule' ? `<p class="muted">${esc(q.title)}</p>` : '';
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(titleOf())} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
+      <div class="row">${soundBtn()}<button class="ghost" id="pause">Save & exit</button></div></div>${ruleTag}<p><b>${esc(q.q)}</b></p>
+      <div class="opts">${q.o.map((o, i) => `<button data-k="${i}">${esc(o)}</button>`).join('')}</div><div id="fb"></div></section>`;
+    $('#pause').onclick = back;
+    let answered = false;
     app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
-      const k = +b.dataset.k, ok = k === q.a; if (ok) { right++; ding(); } else missed.push(list[n]);
-      b.classList.add(ok ? 'ok' : 'no'); app.querySelectorAll('.opts button')[q.a].classList.add('ok'); app.querySelectorAll('.opts button').forEach(x => x.disabled = true);
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'} ${esc(q.why)}<p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
-      $('#go').focus(); $('#go').onclick = () => { n++; show(); };
+      if (answered) return; answered = true;
+      const choice = +b.dataset.k, ok = choice === q.a; if (ok) ding();
+      L.answerSession(s, ok); persist();
+      b.classList.add(ok ? 'ok' : 'no'); app.querySelectorAll('.opts button')[q.a].classList.add('ok');
+      app.querySelectorAll('.opts button').forEach(x => x.disabled = true);
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'} ${esc(q.why)}${ok || retry ? '' : ' <span class="muted">This one will come back shortly.</span>'}
+        <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
+      $('#go').focus(); $('#go').onclick = next;
     });
   };
-  show();
+  next();
 }
 function dailyView() {
   onHome = true; dayCheck(); const dly = gate.daily;
@@ -123,12 +214,29 @@ function dailyView() {
     <div class="unit${recallOn ? '' : ' locked'}"><h3>Meaning</h3><small>Optional but recommended. Recent Words Recall: type the word from its definition, or type the definition from the word, focused on your last 2–3 units (about 70% recent, 30% older, weak words first). This does not gate your path or Daily Review.</small><small>${recallStatus}</small>
       <div class="row" style="margin-top:.5rem">${recallBtn}</div></div>
   </div>`;
+  L.ensureDailyGrammar(gram, GPATH);
+  const gd = gram.daily || { day: L.laDay(), keys: [], passed: true };
+  const gPaused = gram.resume && gram.resume.daily;
+  let gStatus, gBtn, gLocked = false, gBlurb;
+  if (!gd.keys.length) {
+    gLocked = true; gStatus = 'Nothing to review yet';
+    gBlurb = 'A daily review of grammar rules you have already passed will appear here after you pass your first rule. It is required before you continue new grammar, and it does not gate your vocab path or vocab Daily Review.';
+    gBtn = '<button disabled>Nothing to review yet</button>';
+  } else if (gd.passed) {
+    gStatus = '✓ Done';
+    gBlurb = 'Done for today. This review covers grammar rules you had already passed. It does not gate your vocab path or vocab Daily Review.';
+    gBtn = '';
+  } else {
+    gStatus = gPaused && L.validGramResume(gPaused, gPaused.total) ? `Paused at ${gPaused.done}/${gPaused.total}` : 'Open';
+    gBlurb = 'Review of grammar rules you have already passed (about 10 questions). You need 100% on the first try before you continue new grammar today. It does not gate your vocab path or vocab Daily Review.';
+    gBtn = `<button class="alt" id="gDaily">${gPaused && L.validGramResume(gPaused, gPaused.total) ? 'Resume review' : 'Start review'}</button>`;
+  }
   const grammar = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:.7rem">
-    <div class="unit locked"><h3>Grammar</h3><small>Coming soon. A daily grammar review will go here after the grammar materials are rebuilt. It does not gate your path or Daily Review.</small><small>Coming soon</small>
-      <div class="row" style="margin-top:.5rem"><button disabled>Coming soon</button></div></div>
+    <div class="unit${gLocked ? ' locked' : ''}"><h3>Grammar</h3><small>${gBlurb}</small><small>${gStatus}</small>
+      <div class="row" style="margin-top:.5rem">${gBtn}</div></div>
   </div>`;
   app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}${meaning}${grammar}`;
-  wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall;
+  wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall; if ($('#gDaily')) $('#gDaily').onclick = startDailyGrammar;
 }
 function home() {
   onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
@@ -357,7 +465,7 @@ function backup() {
   $('#h').onclick = home;
   $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate, gram)], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } if (r.grammar) { gram = r.grammar; saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 home();

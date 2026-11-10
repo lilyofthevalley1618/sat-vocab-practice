@@ -124,13 +124,60 @@ const EG = L.newGate(); EG.passed.u0 = 1; L.ensureDaily(EG, DP, DT); assert(L.da
 const ds = { type: 'daily', words: [W[0], W[1]], pool: [W[0], W[1]] }; const dq = L.buildQuestion(ds, L.key(W[0]), 0, BY);
 assert.strictEqual(dq.options.length, 2); assert(dq.options.every(o => o === W[0] || o === W[1]));
 // Grammar
-const GR = require('./grammar.js'); assert.strictEqual(GR.length, 19); assert.strictEqual(new Set(GR.map(x => x.id)).size, 19);
-GR.forEach(x => { assert(x.title && x.rule && x.trap && x.before && x.after && x.before !== x.after, x.id); assert(x.qs.length >= 2);
-  x.qs.forEach(q => { assert(Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length && q.why, x.id); assert.strictEqual(new Set(q.o).size, q.o.length); }); });
+const GR = require('./grammar.js');
+assert.strictEqual(GR.length, 28); assert.strictEqual(new Set(GR.map(x => x.id)).size, 28);
+const P1IDS = ['tense', 'sva', 'pa', 'plurals', 'apos', 'modpunct', 'semicolon', 'colon', 'modifier'];
+const P2IDS = ['combine', 'transitions', 'trans-contra', 'trans-similar', 'dash', 'suchas', 'lists', 'clauses', 'fragment', 'runon', 'depsubj', 'parallel', 'case', 'who-whom', 'pref', 'relpro', 'indef', 'confused', 'compare'];
+assert.deepStrictEqual(GR.filter(t => t.part === 1).map(t => t.id), P1IDS);
+assert.deepStrictEqual(GR.filter(t => t.part === 2).map(t => t.id), P2IDS);
+assert.deepStrictEqual(GR.map(t => t.id), P1IDS.concat(P2IDS));
+GR.forEach(x => {
+  assert(x.title && x.rule && x.trap && x.before && x.after && x.before !== x.after && x.source, x.id);
+  assert(x.part === 1 || x.part === 2, x.id);
+  assert(x.qs.length >= 10 && x.qs.length <= 12, x.id);
+  assert(x.bank && x.bank.length === 6, x.id);
+  const stems = new Set();
+  x.qs.concat(x.bank).forEach(q => {
+    assert(Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length && q.why, x.id);
+    assert.strictEqual(q.o.length, 4); assert.strictEqual(new Set(q.o).size, q.o.length);
+    assert(!stems.has(q.q), x.id + ': ' + q.q); stems.add(q.q);
+  });
+});
+const GP = L.makeGrammarPath(GR);
+assert.strictEqual(GP.filter(x => x.type === 'rule').length, 28);
+assert.strictEqual(GP[9].type, 'exam'); assert.strictEqual(GP[9].n, 60); assert.strictEqual(GP[9].id, 'g-exam1');
+assert.deepStrictEqual(GP.filter(x => x.type === 'review').map(x => x.n), [30, 30, 30, 24]);
+assert.strictEqual(GP[GP.length - 1].type, 'final'); assert.strictEqual(GP[GP.length - 1].n, 70);
+assert.strictEqual(GP.length, 34);
 const GG = {}; assert.strictEqual(L.recordGrammar(GG, 'tense', 2, 1), 50); L.recordGrammar(GG, 'tense', 2, 2); L.recordGrammar(GG, 'tense', 2, 0);
 assert.deepStrictEqual(GG.tense, { best: 100, tries: 3 });
 const gb = L.importData(L.exportData(P, G, GG)); assert.deepStrictEqual(gb.grammar, GG); assert.deepStrictEqual(gb.gate.passed, G.passed);
 assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: G })).grammar, null); // older v2 backup keeps grammar
+const mg = L.migrateGrammar({ tense: { best: 90, tries: 1 }, sva: { best: 80, tries: 2 }, nonessential: { best: 100, tries: 4 }, essential: { best: 70, tries: 1 }, 'dash-such': { best: 50, tries: 1 }, apos: { best: 60, tries: 2 } });
+assert.deepStrictEqual(mg.tense, { best: 90, tries: 1 }); assert.deepStrictEqual(mg.sva, { best: 80, tries: 2 }); assert.deepStrictEqual(mg.apos, { best: 60, tries: 2 });
+assert.strictEqual(mg.nonessential, undefined); assert.strictEqual(mg.essential, undefined); assert.strictEqual(mg['dash-such'], undefined);
+const g0 = { passed: {} }; assert(L.isUnlocked(GP, 0, g0)); for (let i = 1; i < GP.length; i++) assert(!L.isUnlocked(GP, i, g0));
+assert(L.recordGrammarAttempt(g0, 'tense', 12, 1).pct === 92); assert(!L.isUnlocked(GP, 1, g0));
+assert(L.recordGrammarAttempt(g0, 'tense', 12, 0).perfect); assert(L.isUnlocked(GP, 1, g0));
+assert.strictEqual(g0.gbest.tense, 100);
+const GT = Date.UTC(2026, 10, 10, 20); // Nov 10 12pm PST
+const g1 = { passed: { tense: 1, sva: 1 } };
+assert(L.ensureDailyGrammar(g1, GP, GT)); assert(L.grammarDailyBlocks(g1));
+assert.deepStrictEqual(g1.daily.keys.slice().sort(), ['sva', 'tense']);
+assert(L.grammarStepOpen(GP, 0, g1)); // already-passed rule stays open
+assert(!L.grammarStepOpen(GP, 2, g1)); // new rule blocked until daily is done
+g1.daily.passed = true; assert(L.grammarStepOpen(GP, 2, g1)); assert(!L.ensureDailyGrammar(g1, GP, GT + 1000));
+const g2 = {}; L.ensureDailyGrammar(g2, GP, GT); assert(!L.grammarDailyBlocks(g2)); assert(g2.daily.passed);
+const g3 = L.newGate(); const p3 = {}; L.ensureDaily(g3, p3, GT); L.grade(p3, W[0], true, GT);
+const dayBefore = g3.daily && g3.daily.day; L.ensureDailyGrammar({ passed: { tense: 1 } }, GP, GT);
+assert.deepStrictEqual(g3.daily && g3.daily.day, dayBefore); assert(!L.dailyBlocks(g3)); // vocab daily unaffected
+const gex = L.buildGrammarExam(GR.slice(0, 9), 60, () => 0.3); assert.strictEqual(gex.length, 60);
+assert(gex.every(q => q.o.length === 4 && Number.isInteger(q.a) && q.why && q.id && q.title));
+const gdq = L.pickDailyGrammar(Object.fromEntries(GR.map(t => [t.id, t])), ['tense', 'sva'], 10, () => 0.4);
+assert.strictEqual(gdq.length, 10);
+const gqs = GR[0].qs.map((q, i) => Object.assign({}, q, { k: 'tense:' + i }));
+const gs = L.newSession(gqs.map(q => q.k)); gs.questions = Object.fromEntries(gqs.map(q => [q.k, q]));
+assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
 // Weak words in reviews
 { const WP = {}, r0 = path.find(x => x.id === 'r0'), BYK = Object.fromEntries(W.map(w => [L.key(w), w]));
   r0.words.forEach(w => L.grade(WP, w, true, 1)); L.grade(WP, r0.words[0], false, 1); // weak inside range

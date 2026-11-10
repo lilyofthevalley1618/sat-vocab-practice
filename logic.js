@@ -376,6 +376,104 @@ function checkTypedDef(answer, word) {
   return best;
 }
 
+
+// Grammar path + daily review (separate from the vocab path and vocab Daily Review).
+const RETIRED_GRAMMAR = ['nonessential', 'essential', 'dash-such'];
+const GRAM_META = new Set(['passed', 'resume', 'daily', 'gbest']);
+function migrateGrammar(raw) {
+  const g = raw && typeof raw === 'object' ? raw : {};
+  const out = {};
+  if (g.passed && typeof g.passed === 'object' && Object.keys(g.passed).length) {
+    out.passed = {};
+    for (const [k, v] of Object.entries(g.passed)) if (v) out.passed[k] = v;
+  }
+  if (g.resume && typeof g.resume === 'object' && Object.keys(g.resume).length) out.resume = g.resume;
+  if (g.gbest && typeof g.gbest === 'object' && Object.keys(g.gbest).length) {
+    out.gbest = {};
+    for (const [k, v] of Object.entries(g.gbest)) if (typeof v === 'number') out.gbest[k] = v;
+  }
+  if (g.daily && typeof g.daily.day === 'string') out.daily = { day: g.daily.day, keys: Array.isArray(g.daily.keys) ? g.daily.keys : [], passed: !!g.daily.passed };
+  for (const [k, v] of Object.entries(g)) {
+    if (GRAM_META.has(k) || RETIRED_GRAMMAR.includes(k)) continue;
+    if (v && typeof v.best === 'number') out[k] = { best: v.best, tries: +v.tries || 0 };
+  }
+  return out;
+}
+function makeGrammarPath(topics) {
+  const p1 = topics.filter(t => t.part === 1), p2 = topics.filter(t => t.part === 2);
+  const path = [];
+  p1.forEach(t => path.push({ type: 'rule', id: t.id, part: 1, topic: t }));
+  path.push({ type: 'exam', id: 'g-exam1', part: 1, title: 'Part 1 Exam', topics: p1, n: 60 });
+  const SIZE = 5;
+  for (let i = 0; i < p2.length; i += SIZE) {
+    const chunk = p2.slice(i, i + SIZE);
+    chunk.forEach(t => path.push({ type: 'rule', id: t.id, part: 2, topic: t }));
+    path.push({ type: 'review', id: 'g-rev' + Math.floor(i / SIZE), part: 2, title: 'Part 2 Review', topics: chunk, n: chunk.length === 5 ? 30 : Math.max(24, chunk.length * 6) });
+  }
+  path.push({ type: 'final', id: 'g-final', part: 2, title: 'Grammar Final Exam', topics: topics, n: 70 });
+  return path;
+}
+function recordGrammarAttempt(gram, id, total, firstTryMisses, now = Date.now()) {
+  const pct = total ? Math.round((total - firstTryMisses) / total * 100) : 0;
+  gram.passed = gram.passed || {};
+  gram.gbest = gram.gbest || {};
+  gram.gbest[id] = Math.max(gram.gbest[id] || 0, pct);
+  const perfect = total > 0 && firstTryMisses === 0;
+  if (perfect && !gram.passed[id]) gram.passed[id] = now;
+  return { pct, perfect };
+}
+function ensureDailyGrammar(gram, path, now = Date.now()) {
+  gram.passed = gram.passed || {};
+  gram.resume = gram.resume || {};
+  const d = laDay(now);
+  const learned = (path || []).filter(it => it.type === 'rule' && gram.passed[it.id]).map(it => it.id);
+  if (!gram.daily || gram.daily.day !== d) {
+    gram.daily = { day: d, keys: learned, passed: learned.length === 0 };
+    delete gram.resume.daily;
+    return true;
+  }
+  return false;
+}
+const grammarDailyBlocks = gram => !!(gram && gram.daily && !gram.daily.passed);
+function grammarStepOpen(path, idx, gram) {
+  if (!isUnlocked(path, idx, gram)) return false;
+  if (gram.passed && gram.passed[path[idx].id]) return true;
+  return !grammarDailyBlocks(gram);
+}
+function buildGrammarExam(topics, n, rnd = Math.random) {
+  const buckets = topics.map(t => {
+    const pool = (t.bank || []).concat(t.qs || []);
+    return { t, pool: shuffle(pool, rnd).map(q => Object.assign({ id: t.id, title: t.title }, q)) };
+  });
+  const out = [];
+  for (let i = 0; out.length < n && i < n * 30; i++) {
+    const b = buckets[i % buckets.length];
+    if (b.pool.length) out.push(b.pool.shift());
+  }
+  return shuffle(out, rnd).slice(0, n);
+}
+function pickDailyGrammar(topicsById, keys, n = 10, rnd = Math.random) {
+  const pools = keys.map(id => topicsById[id]).filter(Boolean).map(t => (t.qs || []).map(q => Object.assign({ id: t.id, title: t.title }, q)));
+  if (!pools.length) return [];
+  const out = [];
+  const bags = pools.map(p => shuffle(p, rnd));
+  for (let i = 0; out.length < n && i < n * 20; i++) {
+    const bag = bags[i % bags.length];
+    if (bag.length) out.push(bag.shift());
+    else if (pools[i % pools.length].length) {
+      const src = pools[i % pools.length];
+      out.push(src[Math.floor(rnd() * src.length)]);
+    }
+  }
+  return shuffle(out, rnd).slice(0, Math.min(n, Math.max(keys.length, Math.min(10, n))));
+}
+function validGramResume(s, n) {
+  if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || !Array.isArray(s.missed) || s.total !== n) return false;
+  if (!s.questions || typeof s.questions !== 'object') return false;
+  const has = k => s.questions[k] && Array.isArray(s.questions[k].o) && Number.isInteger(s.questions[k].a);
+  return s.queue.every(q => q && has(q.k)) && s.seen.every(has);
+}
+
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
 function exportData(prog, gate, grammar) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} }); }
 function importData(text) {
@@ -395,9 +493,9 @@ function importData(text) {
   let grammar = null; // optional; older backups have none and keep current grammar scores
   if (o.grammar != null) {
     if (typeof o.grammar !== 'object') throw new Error('Bad grammar data');
-    grammar = {}; for (const [k, v] of Object.entries(o.grammar)) if (v && typeof v.best === 'number') grammar[k] = { best: v.best, tries: +v.tries || 0 };
+    grammar = migrateGrammar(o.grammar);
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
