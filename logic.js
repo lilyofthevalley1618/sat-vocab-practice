@@ -37,7 +37,21 @@ function weakWords(prog, words, n = Infinity) {
 const score = p => (p.wrong + p.lapses) / (p.right + p.wrong + 1);
 
 function normalize(s) { return s.toLowerCase().replace(/[^a-z]/g, ''); }
-function checkTyped(answer, word) { return normalize(answer) === normalize(word.w); }
+function typedForms(word) {
+  const w = word.w, forms = new Set([normalize(w)]);
+  for (const form of ['past', 'ing', 's']) {
+    forms.add(normalize(inflectForm(w, form)));
+    forms.add(normalize(inflectForm(w.toLowerCase(), form)));
+  }
+  const k = w.toLowerCase();
+  // Accept doubled-consonant -ed/-ing (admitted) when the base is a short CVC.
+  if (/[^aeiou][aeiou][^aeiouwxy]$/.test(k) && !/[aeiou]{2}[^aeiou]$/.test(k)) {
+    const d = k + k.slice(-1);
+    forms.add(normalize(d + 'ed')); forms.add(normalize(d + 'ing'));
+  }
+  return forms;
+}
+function checkTyped(answer, word) { return typedForms(word).has(normalize(answer || '')); }
 
 function shuffle(a, rnd = Math.random) {
   a = a.slice();
@@ -136,6 +150,10 @@ function explainWrong(type, target, chosen, typed, allWords) {
     const known = (allWords || []).find(w => normalize(w.w) === n);
     if (known) return `You typed "${known.w}", which means: ${known.d}. The word for this definition is "${target.w}".`;
     return `"${typed.trim()}" isn't the word for this definition (spelling counts). The answer is "${target.w}". ${T}`;
+  }
+  if (type === 'typeDef') {
+    if (!(typed || '').trim()) return `No answer was entered. "${target.w}" means: ${target.d}`;
+    return `The official definition of "${target.w}" is: ${target.d}`;
   }
   return T;
 }
@@ -271,6 +289,93 @@ function buildClozeQuestion(word, pool, items, last, rnd = Math.random) {
   for (const o of options) { const k = o.fill.toLowerCase(); if (seen.has(k) && o.w !== word) continue; if (seen.has(k) && o.w === word) { const i = unique.findIndex(x => x.fill.toLowerCase() === k); if (i >= 0) unique.splice(i, 1); } seen.add(k); unique.push(o); }
   return { w: word, type: 'cloze', prompt: picked.s, fill: picked.fill, i: picked.i, options: unique };
 }
+
+// Recent Words Recall: optional typing practice, unlocked once Unit 9 is open.
+const RECALL_SIZE = 10, RECALL_UNIT = 8, RECALL_UNITS = 3, RECALL_RECENT = 0.7;
+function recallUnlocked(path, gate) {
+  const idx = path.findIndex(it => it.type === 'unit' && it.i === RECALL_UNIT);
+  return idx >= 0 && isUnlocked(path, idx, gate);
+}
+function recentLearned(units, prog, nUnits = RECALL_UNITS) {
+  let last = -1;
+  units.forEach((u, i) => { if (u.some(w => !isNew(prog, w))) last = i; });
+  if (last < 0) return [];
+  return units.slice(Math.max(0, last - nUnits + 1), last + 1).flat().filter(w => !isNew(prog, w));
+}
+function pickRecall(units, prog, words, size = RECALL_SIZE, rnd = Math.random) {
+  const recent = recentLearned(units, prog, RECALL_UNITS);
+  const rset = new Set(recent.map(key));
+  const older = words.filter(w => !isNew(prog, w) && !rset.has(key(w)));
+  let nR = Math.round(size * RECALL_RECENT), nO = size - nR;
+  if (recent.length < nR) { nO = Math.min(older.length, nO + (nR - recent.length)); nR = recent.length; }
+  if (older.length < nO) { nR = Math.min(recent.length, nR + (nO - older.length)); nO = older.length; }
+  const take = (pool, n) => {
+    const weak = [], rest = [];
+    for (const w of pool) (prog[key(w)] && prog[key(w)].wrong > 0 ? weak : rest).push(w);
+    return shuffle(weak, rnd).concat(shuffle(rest, rnd)).slice(0, n);
+  };
+  return take(recent, nR).concat(take(older, nO));
+}
+function buildRecallQuestion(word, qi, session) {
+  const off = session && session.recallOff ? 1 : 0;
+  return { w: word, type: ['type', 'typeDef'][(qi + off) % 2] };
+}
+// Definition typing: keyword overlap with the official PrepScholar definition (no AI).
+const DEF_STOP = new Set('the and for with that this from into than something someone being about such have having more easily often able other others their your what when which while used state quality act person things thing done give take a an to of or in on as by at is are was were be been it its if so do does doing usu usually particular specific some any can could may might will would just also only but'.split(' '));
+const SYN_GROUPS = [
+  ['become', 'get', 'grow', 'turn'], ['extremely', 'very', 'highly'],
+  ['bad', 'poor', 'terrible', 'awful'], ['good', 'positive'],
+  ['improve', 'better'], ['enough', 'sufficient'],
+  ['change', 'modify', 'alter'], ['accurate', 'correct', 'precise', 'exact'],
+  ['unexpected', 'unanticipated', 'unforeseen'], ['difficult', 'hard'],
+  ['help', 'aid', 'assist'], ['show', 'display', 'reveal'],
+  ['hide', 'conceal'], ['start', 'begin'], ['end', 'finish', 'stop'],
+  ['happen', 'occur'], ['important', 'significant'], ['clear', 'obvious', 'plain'],
+  ['strong', 'powerful'], ['dislike', 'hate', 'hatred'], ['arrival', 'coming'],
+  ['gather', 'collect', 'assemble'], ['support', 'strengthen'],
+  ['kind', 'generous'], ['brave', 'courageous'], ['true', 'real', 'actual'],
+  ['new', 'fresh'], ['before', 'prior', 'preceding', 'previous'],
+  ['after', 'following', 'later'], ['many', 'multiple', 'several'],
+  ['say', 'state', 'express', 'tell'], ['use', 'utilize'],
+  ['small', 'slight', 'little'], ['large', 'big', 'great'],
+  ['reduce', 'lessen', 'decrease', 'diminish'], ['increase', 'rise']
+];
+const SYN_OF = (() => { const m = {}; for (const g of SYN_GROUPS) for (const w of g) (m[w] || (m[w] = [])).push(...g); return m; })();
+function defTokens(s) {
+  return (s || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim().split(/\s+/)
+    .filter(t => t && (t.length > 2 || t === 'no') && !DEF_STOP.has(t));
+}
+function defStems(tokens) { return tokens.map(t => t.length > 5 ? t.slice(0, 5) : t); }
+function expandDefStems(tokens) {
+  const out = new Set(defStems(tokens));
+  for (const t of tokens) for (const syn of (SYN_OF[t] || [])) out.add(syn.length > 5 ? syn.slice(0, 5) : syn);
+  return out;
+}
+function checkTypedDef(answer, word) {
+  const typed = (answer || '').trim();
+  if (!typed) return { grade: 'wrong', overlap: 0, hits: 0, need: 0 };
+  const defs = [word.d].concat(word.senses || []);
+  const nT = normalize(typed);
+  if (defs.some(d => normalize(d) === nT)) return { grade: 'right', overlap: 1, hits: 1, need: 1 };
+  let best = { grade: 'wrong', overlap: 0, hits: 0, need: 0 };
+  const userTok = defTokens(typed);
+  const user = expandDefStems(userTok);
+  for (const d of defs) {
+    const offTok = defTokens(d), off = new Set(defStems(offTok));
+    if (!off.size) continue;
+    const hits = [...off].filter(s => user.has(s)).length;
+    const recall = hits / off.size;
+    const prec = user.size ? hits / user.size : 0;
+    const short = off.size <= 2;
+    let grade = 'wrong';
+    if (short) grade = (hits === off.size) ? 'right' : (hits > 0 ? 'close' : 'wrong');
+    else if (recall >= 0.6 && (prec >= 0.35 || userTok.length <= offTok.length + 4)) grade = 'right';
+    else if (recall >= 0.3 || hits >= 2) grade = 'close';
+    if (recall > best.overlap || (recall === best.overlap && grade === 'right')) best = { grade, overlap: recall, hits, need: off.size };
+  }
+  return best;
+}
+
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
 function exportData(prog, gate, grammar) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} }); }
 function importData(text) {
@@ -294,5 +399,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

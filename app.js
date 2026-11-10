@@ -40,6 +40,15 @@ const startDailyPart2 = () => {
   const st = { type: 'daily2', id: 'daily2', day: gate.daily.day, words: baseKeys.map(k => BYKEY[k]).filter(Boolean) };
   quiz(st.words, 'Daily Review, Part 2', false, st.words, st);
 };
+const startRecall = () => {
+  dayCheck();
+  if (!L.recallUnlocked(PATH, gate)) return dailyView();
+  const snap = gate.resume.recall;
+  const snapWords = snap && Array.isArray(snap.keys) ? snap.keys.map(k => BYKEY[k]).filter(Boolean) : [];
+  const words = (snap && L.validResume(snap, snapWords)) ? snapWords : L.pickRecall(UNITS, prog, WORDS);
+  if (!words.length) return dailyView();
+  quiz(words, 'Recent Words Recall', false, words, { type: 'recall', id: 'recall', words });
+};
 const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${L.dailyBlocks(gate) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
 const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
 // Grammar Rules tab: reference + practice, independent of the vocab path and Daily Review.
@@ -105,8 +114,17 @@ function dailyView() {
         <div class="row" style="margin-top:.5rem">${p2btn}</div></div>
     </div>`;
   }
-  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}`;
-  wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2;
+  let recall = '';
+  if (L.recallUnlocked(PATH, gate)) {
+    const pausedR = gate.resume.recall, bestR = gate.best.recall;
+    const nR = (pausedR && pausedR.total) || L.RECALL_SIZE;
+    recall = `<section class="card"><h2>Recent Words Recall</h2>
+      <p>Optional typing practice once you reach Unit 9. About 70% of the words come from your last 2–3 units (the 20–30 most recently learned), and the rest from older words, with weak words first. Type the word from its definition, or type the definition from the word. This does not gate your path or Daily Review.</p>
+      <p class="muted">${pausedR ? `Paused at ${pausedR.done}/${pausedR.total}.` : bestR != null ? `Best first-try score: ${bestR}%.` : `About ${nR} questions, mixed typing.`}</p>
+      <button class="alt" id="recall">${pausedR ? 'Resume recall' : 'Start recall'}</button></section>`;
+  }
+  app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}${recall}`;
+  wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall;
 }
 function home() {
   onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
@@ -197,6 +215,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   } else if (keep && L.validResume(gate.resume[stage.id], words)) s = gate.resume[stage.id];
   if (!words.length) return home();
   if (!s) s = L.newSession(words.map(L.key));
+  if (stage && stage.type === 'recall' && s.recallOff == null) s.recallOff = Math.random() < 0.5 ? 0 : 1;
   const rtypes = intro ? null : L.quizTypes(1000, false);
   const persist = () => {
     if (!keep) return;
@@ -228,6 +247,9 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
         s.curQ = { k, q }; clozeMap[k] = q.i;
         gate.clozeLast = gate.clozeLast || {}; gate.clozeLast[k] = q.i;
       } else q = s.curQ.q;
+    } else if (stage && stage.type === 'recall') {
+      if (!s.curQ || s.curQ.k !== k) { q = L.buildRecallQuestion(BYKEY[k], s.qi, s); s.curQ = { k, q }; }
+      else q = s.curQ.q;
     } else {
       if (!s.curQ || s.curQ.k !== k) {
         q = stage && stage.type !== 'daily2' ? L.buildQuestion(stage, k, s.qi, BYKEY) : { w: BYKEY[k], type: intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000], options: L.choices(BYKEY[k], pool) };
@@ -239,7 +261,9 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     const rawOf = o => type === 'cloze' ? o.w : o;
     let body;
     if (type === 'type') body = `<p class="muted">Type the word that means:</p><p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>
-      <form id="tf" class="row"><input type="text" id="ti" autocomplete="off" autocapitalize="off" aria-label="Your answer"><button>Check</button><button type="button" class="ghost" id="hint">Show first letter</button></form>`;
+      <form id="tf" class="row"><input type="text" id="ti" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Your answer"><button>Check</button>${stage && stage.type === 'recall' ? '' : '<button type="button" class="ghost" id="hint">Show first letter</button>'}</form>`;
+    else if (type === 'typeDef') body = `<p class="muted">Type the definition of this word.</p><div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span>
+      <form id="tf"><textarea id="ti" rows="3" autocomplete="off" autocapitalize="off" aria-label="Your definition"></textarea><div class="row" style="margin-top:.5rem"><button>Check</button></div></form>`;
     else if (type === 'cloze') body = `<p class="muted">Choose the word that best completes the sentence.</p>
       <p class="word" style="font-size:1.15rem;font-weight:500">${esc(q.prompt).replace('_____', '______')}</p>
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(o.fill)}</button>`).join('')}</div>`;
@@ -249,7 +273,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     const reviewBtn = (stage && stage.type === 'unit') ? '<button class="ghost" id="peek">Review words</button>' : '';
     app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
       <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
-    $('#pause').onclick = home;
+    $('#pause').onclick = (stage && (stage.type === 'recall' || stage.type === 'daily' || stage.type === 'daily2')) ? dailyView : home;
     if ($('#peek')) $('#peek').onclick = () => {
       const unitWords = stage.words;
       app.innerHTML = `<section class="card"><h2>Review these words</h2><p class="muted">This does not change your quiz progress or score. Return to the same question when you are ready.</p>
@@ -263,13 +287,33 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
       L.answerSession(s, ok); s.curQ = null; persist();
       const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`}${filled}
+      const official = type === 'typeDef' ? (ok ? `Correct. The official definition of <b>${esc(w.w)}</b> is: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`) : (ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`);
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${official}${filled}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
       $('#go').focus(); $('#go').onclick = next;
     };
-    if (type === 'type') { $('#ti').focus(); $('#hint').onclick = () => { $('#ti').value = w.w[0]; $('#ti').focus(); };
-      $('#tf').onsubmit = e => { e.preventDefault(); const v = $('#ti').value; answer(L.checkTyped(v, w), null, v); }; }
+    const lockInput = () => app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
+    if (type === 'type' || type === 'typeDef') {
+      $('#ti').focus();
+      if ($('#hint')) $('#hint').onclick = () => { $('#ti').value = w.w[0]; $('#ti').focus(); };
+      $('#tf').onsubmit = e => {
+        e.preventDefault(); const v = $('#ti').value;
+        if (type === 'type') return answer(L.checkTyped(v, w), null, v);
+        const r = L.checkTypedDef(v, w);
+        if (r.grade === 'right') return answer(true, null, v);
+        if (r.grade === 'wrong') return answer(false, null, v);
+        lockInput();
+        const ex = w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '';
+        $('#fb').innerHTML = `<div class="fb"><p>Close — compare what you wrote with the official definition, then decide.</p>
+          <p>You wrote: “${esc(v.trim())}”</p>
+          <p>The official definition of <b>${esc(w.w)}</b> is: ${esc(w.d)}</p>${ex}
+          <div class="row" style="margin:.6rem 0 0"><button class="alt" id="yes">I was right</button><button id="no">I was wrong</button></div></div>`;
+        $('#yes').focus();
+        $('#yes').onclick = () => answer(true, null, v);
+        $('#no').onclick = () => answer(false, null, v);
+      };
+    }
     else app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
       const chosen = rawOf(opts[+b.dataset.i]); const ok = chosen === w;
       b.classList.add(ok ? 'ok' : 'no');
@@ -282,7 +326,11 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
 function done(title, total, m, stage, result) {
   const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
   const isDaily = stage && (stage.type === 'daily' || stage.type === 'daily2');
-  const dailyMsg = result && isDaily ? (
+  const isRecall = stage && stage.type === 'recall';
+  const dailyMsg = result && isRecall ? (
+    result.perfect ? '<p class="fb ok">Nice work — 100% on the first try. Recent Words Recall is optional and does not affect your path or Daily Review.</p>'
+    : `<p class="fb no">${result.pct}% on the first try. This practice is optional; retake it whenever you like. It does not gate your path.</p>`)
+    : result && isDaily ? (
     result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>'
     : stage.type === 'daily' && result.perfect ? '<p class="fb ok">Part 1 done — 100% on the first try. Part 2: Fill in the blank is now unlocked on the Daily Review tab.</p>'
     : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
@@ -291,11 +339,12 @@ function done(title, total, m, stage, result) {
   const verdict = dailyMsg || (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
     : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`);
   const canRetake = stage && !(isDaily && result && result.perfect);
+  const backDaily = isDaily || isRecall;
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
    ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
-   <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${isDaily ? 'Back to Daily Review' : 'Back to path'}</button>${isDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
-  $('#h').onclick = isDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
-  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : startStage(stage, idx);
+   <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${backDaily ? 'Back to Daily Review' : 'Back to path'}</button>${backDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
+  $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
+  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : startStage(stage, idx);
 }
 
 function backup() {

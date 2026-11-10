@@ -268,4 +268,77 @@ assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2
   let eq = 0; for (const w of W) { const s = SRC[L.key(w)]; if (w.e === s.e && w.senses.map(x => w.p + '. ' + x).join('\n') === s.d) eq++; }
   assert.strictEqual(eq, 384);
 }
+
+// Recent Words Recall: unlock at Unit 9, weighted recent pool, typed grading
+{ const path = L.makePath(U), G = L.newGate(), BY = Object.fromEntries(W.map(w => [L.key(w), w]));
+  const u9 = path.findIndex(it => it.type === 'unit' && it.i === 8);
+  assert(u9 > 0); assert.strictEqual(path[u9].id, 'u8');
+  assert(!L.recallUnlocked(path, G));
+  // passing Unit 8 itself is not enough; Unit 9 opens after the Units 1–8 review
+  G.passed.u7 = 1; assert(!L.recallUnlocked(path, G));
+  const prev = path[u9 - 1].id; G.passed[prev] = 1;
+  assert(L.recallUnlocked(path, G));
+  // still unlocked after later units
+  G.passed.u8 = 1; assert(L.recallUnlocked(path, G));
+
+  const prog = {};
+  U.slice(0, 10).flat().forEach((w, i) => { L.grade(prog, w, true, 1 + i); });
+  // Units 8–10 are recent (i 7,8,9); mark two recent and one older as weak
+  L.grade(prog, U[8][0], false, 100); // unit 9 weak
+  L.grade(prog, U[9][0], false, 100); // unit 10 weak
+  L.grade(prog, U[0][0], false, 100); // unit 1 older weak
+  const recent = L.recentLearned(U, prog, 3);
+  assert.strictEqual(recent.length, 30);
+  assert(recent.every(w => U.slice(7, 10).flat().includes(w)));
+  const pick = L.pickRecall(U, prog, W, 10, () => 0.2);
+  assert.strictEqual(pick.length, 10);
+  assert.strictEqual(new Set(pick.map(L.key)).size, 10);
+  assert(pick.every(w => !L.isNew(prog, w)));
+  const rset = new Set(recent.map(L.key));
+  const nRecent = pick.filter(w => rset.has(L.key(w))).length;
+  const nOlder = 10 - nRecent;
+  assert.strictEqual(nRecent, 7); assert.strictEqual(nOlder, 3);
+  assert(pick.includes(U[8][0]) && pick.includes(U[9][0]), 'recent weak prioritized');
+  assert(pick.includes(U[0][0]), 'older weak prioritized');
+  // not yet learned words are never picked
+  assert(!pick.includes(U[20][0]));
+
+  const abate = BY.abate, withdraw = BY.withdraw, abysmal = BY.abysmal, abrupt = BY.abrupt, austere = BY.austere;
+  assert(L.checkTyped(' ABATE ', abate) && L.checkTyped('abated', abate) && L.checkTyped('abating', abate) && L.checkTyped('abates', abate));
+  assert(!L.checkTyped('abait', abate) && !L.checkTyped('abatement', abate) && !L.checkTyped('', abate));
+  assert(L.checkTyped('withdrew', withdraw) && L.checkTyped('withdrawing', withdraw) && L.checkTyped('Withdraw', withdraw));
+  assert(!L.checkTyped('withdrawnness', withdraw));
+
+  assert.strictEqual(L.checkTypedDef(abysmal.d, abysmal).grade, 'right');
+  assert.strictEqual(L.checkTypedDef('  EXTREMELY BAD  ', abysmal).grade, 'right');
+  assert.strictEqual(L.checkTypedDef('very bad', abysmal).grade, 'right'); // very ~ extremely
+  assert.strictEqual(L.checkTypedDef('bad', abysmal).grade, 'close');
+  assert.strictEqual(L.checkTypedDef('pizza', abysmal).grade, 'wrong');
+  assert.strictEqual(L.checkTypedDef('', abysmal).grade, 'wrong');
+  assert.strictEqual(L.checkTypedDef('sudden and unexpected', abrupt).grade, 'right');
+  assert.strictEqual(L.checkTypedDef('to become less active, less intense, or less in amount', abate).grade, 'right');
+  assert.strictEqual(L.checkTypedDef('become less active and less intense', abate).grade, 'right');
+  const closeAbate = L.checkTypedDef('become less', abate);
+  assert.strictEqual(closeAbate.grade, 'close');
+  assert.strictEqual(L.checkTypedDef('extremely plain', austere).grade, 'right'); // one official sense
+  assert.strictEqual(L.checkTypedDef('totally unrelated sentence about cooking', abate).grade, 'wrong');
+  assert(L.explainWrong('typeDef', abysmal, null, 'pizza', W).includes(abysmal.d));
+
+  // mixed question types, resume/backup, does not affect daily gate
+  const q0 = L.buildRecallQuestion(abate, 0, { recallOff: 0 });
+  const q1 = L.buildRecallQuestion(abate, 1, { recallOff: 0 });
+  assert.strictEqual(q0.type, 'type'); assert.strictEqual(q1.type, 'typeDef');
+  const RG = L.newGate(); RG.passed[prev] = 1;
+  L.ensureDaily(RG, prog, Date.UTC(2026, 10, 11, 20));
+  assert(L.dailyBlocks(RG));
+  RG.resume.recall = L.newSession(pick.map(L.key)); RG.resume.recall.recallOff = 1;
+  const recBk = L.importData(L.exportData(prog, RG));
+  assert.deepStrictEqual(recBk.gate.resume.recall.keys, pick.map(L.key));
+  assert.strictEqual(recBk.gate.resume.recall.recallOff, 1);
+  assert(L.dailyBlocks(recBk.gate)); // recall session does not pass the day
+  // source defs still exact
+  const SRC = require('./source-prepscholar.json');
+  let eq2 = 0; for (const w of W) { const s = SRC[L.key(w)]; if (w.e === s.e && w.senses.map(x => w.p + '. ' + x).join('\n') === s.d) eq2++; }
+  assert.strictEqual(eq2, 384);
+}
 console.log('all tests passed');
