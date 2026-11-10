@@ -145,6 +145,17 @@ GR.forEach(x => {
     assert(Number.isInteger(q.a) && q.a >= 0 && q.a < q.o.length && q.why, x.id);
     assert.strictEqual(q.o.length, 4); assert.strictEqual(new Set(q.o).size, q.o.length);
     assert(!stems.has(q.q), x.id + ': ' + q.q); stems.add(q.q);
+    assert(Array.isArray(q.wx) && q.wx.length === q.o.length, x.id + ' wx');
+    q.o.forEach((_, i) => {
+      if (i === q.a) return;
+      assert(q.wx[i] && String(q.wx[i]).trim(), x.id + ' missing why-wrong for option ' + i + ': ' + q.q);
+    });
+    q.o.forEach((_, i) => {
+      const e = L.explainGrammar(q, i);
+      assert.strictEqual(e.ok, i === q.a);
+      assert(e.whyCorrect);
+      if (!e.ok) assert(e.whyWrong && e.picked === q.o[i] && e.correct === q.o[q.a], x.id + ' ' + q.q);
+    });
   });
 });
 const GP = L.makeGrammarPath(GR);

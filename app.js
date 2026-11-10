@@ -174,7 +174,11 @@ function showGramQ(it, s) {
       L.answerSession(s, ok); persist();
       b.classList.add(ok ? 'ok' : 'no'); app.querySelectorAll('.opts button')[q.a].classList.add('ok');
       app.querySelectorAll('.opts button').forEach(x => x.disabled = true);
-      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'} ${esc(q.why)}${ok || retry ? '' : ' <span class="muted">This one will come back shortly.</span>'}
+      const exg = L.explainGrammar(q, choice);
+      const fbText = exg.ok
+        ? `Correct. ${esc(exg.whyCorrect)}`
+        : `Not quite. You picked “${esc(exg.picked)}.” ${esc(exg.whyWrong)}<br>The correct answer is “${esc(exg.correct)}.” ${esc(exg.whyCorrect)}`;
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${fbText}${ok || retry ? '' : ' <span class="muted">This one will come back shortly.</span>'}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       $('#go').focus(); $('#go').onclick = next;
     });

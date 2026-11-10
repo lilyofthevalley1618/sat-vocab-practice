@@ -467,6 +467,13 @@ function pickDailyGrammar(topicsById, keys, n = 10, rnd = Math.random) {
   }
   return shuffle(out, rnd).slice(0, Math.min(n, Math.max(keys.length, Math.min(10, n))));
 }
+function explainGrammar(q, choice) {
+  const ok = choice === q.a;
+  const picked = q.o[choice], correct = q.o[q.a];
+  const whyCorrect = String(q.why || '').trim();
+  const whyWrong = (!ok && q.wx && q.wx[choice]) ? String(q.wx[choice]).trim() : '';
+  return { ok, picked, correct, whyCorrect, whyWrong };
+}
 function validGramResume(s, n) {
   if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || !Array.isArray(s.missed) || s.total !== n) return false;
   if (!s.questions || typeof s.questions !== 'object') return false;
@@ -497,5 +504,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
