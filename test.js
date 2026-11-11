@@ -31,24 +31,40 @@ for (const u of U) for (const w of u) {
   assert.strictEqual(new Set(ch.map(L.key)).size, ch.length); assert.strictEqual(new Set(ch.map(x => x.d.toLowerCase())).size, ch.length);
 }
 const path = L.makePath(U), revs = path.filter(x => x.type === 'review'), bigs = path.filter(x => x.type === 'big');
-assert.strictEqual(revs.length, 19); assert.strictEqual(bigs.length, 6); assert.strictEqual(path.length, 39 + 19 + 6 + 1);
-assert.strictEqual(path[path.length - 1].id, 'final'); assert.strictEqual(path[path.length - 2].id, 'u38');
+assert.strictEqual(revs.length, 19); assert.strictEqual(bigs.length, 6);
+const pairs = path.filter(x => x.type === 'pair');
+assert.strictEqual(pairs.length, 20); assert.strictEqual(path.length, 39 + 19 + 20 + 6 + 1);
+assert.strictEqual(path[path.length - 1].id, 'final'); assert.strictEqual(path[path.length - 2].id, 'pr38');
+assert.strictEqual(path[path.length - 3].id, 'u38');
 assert.strictEqual(path[path.length - 1].words.length, 384); assert.strictEqual(new Set(path[path.length - 1].words.map(L.key)).size, 384);
 revs.forEach((r, n) => {
   assert.strictEqual(r.a, 0); assert.strictEqual(r.b, 2 * n + 1); assert.strictEqual(r.id, 'r' + (2 * n));
-  const pi = path.indexOf(r); assert(path[pi - 1].i === r.b && path[pi - 2].i === r.b - 1);
+  const pi = path.indexOf(r); assert.strictEqual(path[pi - 1].type, 'pair'); assert.strictEqual(path[pi - 1].id, 'pr' + (r.b - 1));
+  assert(path[pi - 2].i === r.b && path[pi - 3].i === r.b - 1);
   assert.strictEqual(r.words.length, Math.min(20 * (n + 1), 380)); assert.strictEqual(new Set(r.words.map(L.key)).size, r.words.length);
   assert.deepStrictEqual(r.words, W.slice(0, r.words.length));
   const rk = new Set(r.words.map(L.key));
   for (const w of r.words.slice(0, 40)) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
 });
 assert.deepStrictEqual(revs.map(r => r.words.length), Array.from({ length: 19 }, (_, n) => 20 * (n + 1)));
+pairs.forEach((pr, n) => {
+  const last = n === 19;
+  assert.strictEqual(pr.id, 'pr' + (last ? 38 : 2 * n));
+  assert.strictEqual(pr.from, last ? 38 : 2 * n); assert.strictEqual(pr.to, last ? 38 : 2 * n + 1);
+  const expect = last ? U[38] : U[2 * n].concat(U[2 * n + 1]);
+  assert.deepStrictEqual(pr.words, expect); assert.deepStrictEqual(pr.pool, expect);
+  assert.strictEqual(pr.words.length, last ? 4 : 20);
+  const pi = path.indexOf(pr);
+  if (last) { assert.strictEqual(path[pi - 1].id, 'u38'); assert.strictEqual(path[pi + 1].id, 'final'); }
+  else { assert.strictEqual(path[pi - 1].id, 'u' + (2 * n + 1)); assert.strictEqual(path[pi + 1].id, 'r' + (2 * n)); }
+});
+
 // stale/mismatched saved review sessions are not resumed; matching ones are
 const r2 = path.find(x => x.id === 'r2'); assert.strictEqual(r2.words.length, 40);
 assert(!L.validResume(L.newSession(U[2].concat(U[3]).map(L.key)), r2.words));
 const okS = L.newSession(r2.words.map(L.key)); L.answerSession(okS, true); assert(L.validResume(JSON.parse(JSON.stringify(okS)), r2.words));
 bigs.forEach((b, n) => {
-  const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'r' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'u' + (6 * n + 5));
+  const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'r' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'pr' + (6 * n + 4)); assert.strictEqual(path[pi - 3].id, 'u' + (6 * n + 5));
   assert.strictEqual(b.words.length, 60); assert.deepStrictEqual(b.words, W.slice(60 * n, 60 * n + 60));
 });
 // gating
@@ -62,9 +78,12 @@ assert.strictEqual(S.done, 10); assert.strictEqual(S.missed.length, 1);
 assert(!L.recordAttempt(G, 'u0', S.total, S.missed.length).perfect); assert(!L.isUnlocked(path, 1, G));
 assert(L.recordAttempt(G, 'u0', 10, 0).perfect); assert(L.isUnlocked(path, 1, G)); assert(!L.isUnlocked(path, 2, G));
 L.recordAttempt(G, 'u0', 10, 5); assert(L.isUnlocked(path, 1, G)); assert.strictEqual(G.best.u0, 100); // no relock
-L.recordAttempt(G, 'u1', 10, 0); assert(L.isUnlocked(path, 2, G)); assert(!L.isUnlocked(path, 3, G)); // review gates unit 3
-L.recordAttempt(G, 'r0', 20, 0); assert(L.isUnlocked(path, 3, G));
-const G2 = JSON.parse(JSON.stringify(G)); assert(L.isUnlocked(path, 3, G2) && !L.isUnlocked(path, 4, G2)); // persists via JSON
+const iPr0 = path.findIndex(x => x.id === 'pr0'), iR0 = path.findIndex(x => x.id === 'r0'), iU2 = path.findIndex(x => x.id === 'u2');
+assert.strictEqual(iPr0, 2); assert.strictEqual(iR0, 3); assert.strictEqual(iU2, 4);
+L.recordAttempt(G, 'u1', 10, 0); assert(L.isUnlocked(path, iPr0, G)); assert(!L.isUnlocked(path, iR0, G)); // pair review gates cumulative
+L.recordAttempt(G, 'pr0', 20, 0); assert(L.isUnlocked(path, iR0, G)); assert(!L.isUnlocked(path, iU2, G)); // cumulative still gates unit 3
+L.recordAttempt(G, 'r0', 20, 0); assert(L.isUnlocked(path, iU2, G));
+const G2 = JSON.parse(JSON.stringify(G)); assert(L.isUnlocked(path, iU2, G2) && !L.isUnlocked(path, iU2 + 1, G2)); // persists via JSON
 // resume: a 384 session survives JSON round trip mid-way
 let F = L.newSession(path[path.length - 1].words.map(L.key)); for (let i = 0; i < 100; i++) L.answerSession(F, i !== 5);
 F = JSON.parse(JSON.stringify(F)); assert.strictEqual(F.done, 99); assert.strictEqual(F.missed.length, 1);
@@ -79,12 +98,21 @@ const BY = Object.fromEntries(W.map(w => [L.key(w), w]));
 const u2 = path.find(x => x.id === 'u1'), pair = new Set(U[0].concat(U[1]).map(L.key));
 assert.strictEqual(u2.pool.length, 20); assert.deepStrictEqual(new Set(u2.pool.map(L.key)), pair);
 assert.strictEqual(path.find(x => x.id === 'u0').pool.length, 20); assert.strictEqual(path.find(x => x.id === 'u38').pool.length, 4);
+const CLOZE_BANK = require('./cloze.js');
 for (const st of path) {
   const poolK = new Set((st.pool || st.words).map(L.key));
   const S2 = L.newSession(st.words.map(L.key));
   for (let qi = 0; S2.queue.length && qi < 60; qi++) {
-    const q = L.buildQuestion(st, S2.queue[0].k, S2.qi, BY);
-    assert(q.options.every(o => poolK.has(L.key(o))), st.id); assert.strictEqual(q.options.filter(o => o === q.w).length, 1);
+    const k = S2.queue[0].k;
+    const q = st.type === 'pair' ? L.buildClozeQuestion(BY[k], st.pool || st.words, CLOZE_BANK[k], null) : L.buildQuestion(st, k, S2.qi, BY);
+    if (st.type === 'pair') {
+      assert.strictEqual(q.type, 'cloze', st.id); assert(q.prompt.includes('_____'), st.id);
+      assert(q.options.some(o => o.w === q.w && o.fill === q.fill), st.id);
+      assert(q.options.every(o => poolK.has(L.key(o.w))), st.id);
+      assert.strictEqual(q.options.filter(o => o.w === q.w).length, 1, st.id);
+    } else {
+      assert(q.options.every(o => poolK.has(L.key(o))), st.id); assert.strictEqual(q.options.filter(o => o === q.w).length, 1);
+    }
     L.answerSession(S2, true);
   }
 }
@@ -278,6 +306,33 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
     }
   }
 }
+// Pair fill-in reviews: migration does not relock already-unlocked units
+{ const old = L.newGate();
+  ['u0', 'u1', 'r0', 'u2'].forEach(id => L.recordAttempt(old, id, 10, 0));
+  const p2 = L.makePath(U);
+  assert(!old.passed.pr0);
+  const iU2 = p2.findIndex(x => x.id === 'u2'), iPr0 = p2.findIndex(x => x.id === 'pr0'), iR0 = p2.findIndex(x => x.id === 'r0');
+  assert(L.isUnlocked(p2, iU2, old)); // unit 3 stays open even before migration
+  assert(!L.isUnlocked(p2, iR0, old)); // cumulative would look locked until grant
+  assert(L.migratePairUnlocks(p2, old));
+  assert(old.passed.pr0); assert(L.isUnlocked(p2, iR0, old)); assert(L.isUnlocked(p2, iU2, old));
+  assert(!L.migratePairUnlocks(p2, old)); // idempotent
+  // already-past pair review is available to retake; later units stay unlocked
+  assert(L.isUnlocked(p2, iPr0, old));
+  // user who finished only the two units is not auto-passed; the new review is required
+  const mid = L.newGate(); L.recordAttempt(mid, 'u0', 10, 0); L.recordAttempt(mid, 'u1', 10, 0);
+  assert(!L.migratePairUnlocks(p2, mid)); assert(!mid.passed.pr0);
+  assert(L.isUnlocked(p2, iPr0, mid)); assert(!L.isUnlocked(p2, iR0, mid));
+  L.recordAttempt(mid, 'pr0', 20, 0); assert(L.isUnlocked(p2, iR0, mid));
+  // user already at the final: every pair review is granted
+  const done = L.newGate(); done.passed.final = 1;
+  assert(L.migratePairUnlocks(p2, done));
+  assert(p2.filter(x => x.type === 'pair').every(x => done.passed[x.id]));
+  // import of an older backup still returns the raw passed map; the app migrates after
+  const imported = L.importData(L.exportData({}, old));
+  assert(imported.gate.passed.pr0);
+}
+
 // No future review dates/countdowns shown anywhere in the UI
 { const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
   assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }

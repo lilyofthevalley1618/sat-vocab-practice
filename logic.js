@@ -89,19 +89,38 @@ function choices(word, all, n = 4, rnd = Math.random) {
 
 // Question types for a session. Intro (unit learn) quizzes alternate the two
 // multiple-choice directions so both appear; other sessions also mix in typed recall.
-// Learning path: Unit, Unit, Review (pair); after every 6 units a 60-word Big Test; Final Test after the last unit.
+// Learning path: Unit, Unit, pair fill-in review (just those two units), cumulative review (all words so far);
+// after every 6 units a 60-word Big Test; Final Test after the last unit. An unpaired last unit gets its own pair review.
 function makePath(units) {
   const path = [];
   units.forEach((u, i) => {
     // Unit quizzes draw wrong answers from the unit pair (Units 1+2, 3+4, ...; Unit 39 alone).
     const pool = units.slice(i - (i % 2), i - (i % 2) + 2).flat();
     path.push({ type: 'unit', id: 'u' + i, i, words: u, pool });
+    // Fill-in review of only the two units just finished (or the last unit alone if it has no partner).
+    if (i % 2 === 1 || (i === units.length - 1 && i % 2 === 0)) {
+      const a = (i % 2 === 1) ? i - 1 : i, b = i, words = units.slice(a, b + 1).flat();
+      path.push({ type: 'pair', id: 'pr' + a, a, b, from: a, to: b, words, pool: words });
+    }
     // Cumulative review: every word from Unit 1 through this unit (id kept as before so saved unlocks still match).
     if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: 0, b: i, words: units.slice(0, i + 1).flat() });
     if (i % 6 === 5) path.push({ type: 'big', id: 'b' + (i + 1) / 6, n: (i + 1) / 6, from: i - 5, to: i, words: units.slice(i - 5, i + 1).flat() });
   });
   path.push({ type: 'final', id: 'final', words: units.flat() });
   return path;
+}
+// If a user already unlocked a later step, grant any new pair reviews behind that point so
+// already-opened units stay open. Those pair reviews remain available to take or retake.
+function migratePairUnlocks(path, gate, now = Date.now()) {
+  if (!gate || !path) return false;
+  gate.passed = gate.passed || {};
+  let latest = -1;
+  path.forEach((it, idx) => { if (gate.passed[it.id]) latest = idx; });
+  let changed = false;
+  path.forEach((it, idx) => {
+    if (it.type === 'pair' && !gate.passed[it.id] && latest > idx) { gate.passed[it.id] = now; changed = true; }
+  });
+  return changed;
 }
 // Gate: stage n is open only when the stage before it was passed with 100% first-try accuracy.
 // Passing is permanent (later mistakes never relock).
@@ -504,5 +523,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

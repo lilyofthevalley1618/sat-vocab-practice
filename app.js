@@ -6,6 +6,7 @@ const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
 const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
+if (L.migratePairUnlocks(PATH, gate)) saveGate();
 let onHome = false;
 // Sound: on by default, saved locally. AudioContext is created lazily on the first answer click.
 const SNDKEY = 'satVocabSound.v1'; let soundOn = localStorage.getItem(SNDKEY) !== 'off'; let actx = null;
@@ -19,7 +20,7 @@ const dayCheck = () => { let ch = false; if (L.ensureDaily(gate, prog)) { saveGa
 dayCheck(); setInterval(dayCheck, 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && dayCheck());
 const dailyStage = () => { const ws = gate.daily.words.map(k => BYKEY[k]).filter(Boolean); return { type: 'daily', id: 'daily', day: gate.daily.day, words: ws, pool: ws }; };
-const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Cumulative Review: Units 1–${it.b + 1}` : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
+const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Cumulative Review: Units 1–${it.b + 1}` : it.type === 'pair' ? (it.from === it.to ? `Unit ${it.from + 1} Review (fill in the blank)` : `Units ${it.from + 1}–${it.to + 1} Review (fill in the blank)`) : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 $('#home').onclick = e => { e.preventDefault(); home(); };
 
@@ -252,13 +253,13 @@ function home() {
    <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Extra practice (${Math.min(due.length, 30)} words, optional)</button>
    <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
-   <h2>Your path</h2><p class="muted">Units have up to 10 words. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Due reviews and weak words are always open.</p>
+   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Due reviews and weak words are always open.</p>
    <div class="units">${PATH.map((it, idx) => {
      const u = it.words, open = !block && L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
      const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
      const btn = it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : res ? `Resume (${res.done}/${res.total})` : 'Start';
-     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'review' ? `${u.length} words + ${L.withWeak(u, prog, WORDS).length - u.length} other weak words` : u.length + ' words'}</small>
+     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'review' ? `${u.length} words + ${L.withWeak(u, prog, WORDS).length - u.length} other weak words` : it.type === 'pair' ? `${u.length} words, fill-in sentences` : u.length + ' words'}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
      <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
    }).join('')}</div>`;
@@ -322,6 +323,9 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       words = L.pickHalf(words.map(L.key)).map(k => BYKEY[k]);
     }
     pool = words;
+  } else if (stage && stage.type === 'pair') {
+    if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; clozeMap = s.cloze || {}; }
+    pool = stage.pool || stage.words;
   } else if (stage && (stage.type === 'review' || stage.type === 'daily')) {
     // Snapshot base range + all weak words at session start; resume keeps that snapshot.
     const snap = L.resumeSnapshot(gate.resume[stage.id], words, BYKEY);
@@ -337,7 +341,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   const persist = () => {
     if (!keep) return;
     if ((stage.type === 'daily' || stage.type === 'daily2') && (!gate.daily || gate.daily.day !== stage.day)) return;
-    if (stage.type === 'daily2') s.cloze = clozeMap;
+    if (stage.type === 'daily2' || stage.type === 'pair') s.cloze = clozeMap;
     gate.resume[stage.id] = s; saveGate();
   };
   persist();
@@ -357,7 +361,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     }
     const { k, retry } = s.queue[0];
     let q;
-    if (stage && stage.type === 'daily2') {
+    if (stage && (stage.type === 'daily2' || stage.type === 'pair')) {
       if (!s.curQ || s.curQ.k !== k) {
         const items = (typeof CLOZE !== 'undefined' ? CLOZE[k] : null) || [];
         q = L.buildClozeQuestion(BYKEY[k], pool, items, (gate.clozeLast || {})[k]);
@@ -470,7 +474,7 @@ function backup() {
   $('#h').onclick = home;
   $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate, gram)], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 home();
