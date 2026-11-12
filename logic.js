@@ -142,6 +142,28 @@ function validResume(s, words) {
   if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || s.total !== words.length) return false;
   const ks = new Set(words.map(key)); return s.queue.every(q => ks.has(q.k)) && s.seen.every(k => ks.has(k));
 }
+// After JSON/localStorage, re-attach word object identity so option === word still works.
+function rehydrateQuestion(q, byKey) {
+  if (!q || !q.w) return q;
+  const resolve = w => (w && byKey[key(w)]) || w;
+  const w = resolve(q.w);
+  const options = Array.isArray(q.options) ? q.options.map(o => {
+    if (!o || typeof o === 'string') return o;
+    if (o.fill != null) return Object.assign({}, o, { w: resolve(o.w) });
+    return resolve(o);
+  }) : q.options;
+  return Object.assign({}, q, { w, options });
+}
+function rehydrateSession(s, byKey) {
+  if (!s) return s;
+  if (s.curQ && s.curQ.q) s.curQ.q = rehydrateQuestion(s.curQ.q, byKey);
+  return s;
+}
+// Drop only an in-progress attempt. Never touches passed, best, or word progress.
+function clearResume(owner, id) {
+  if (owner && owner.resume && id) delete owner.resume[id];
+  return owner;
+}
 // Daily Review: each Pacific calendar day, every word started before that day must be
 // answered right on the first try (one full clean run) before the path can continue.
 // Grammar practice: best first-try score per topic; never lowered.
@@ -618,5 +640,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

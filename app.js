@@ -208,6 +208,12 @@ function showGramQ(it, s) {
     $('#h').onclick = back; if ($('#hg')) $('#hg').onclick = grammarView;
     if ($('#again')) $('#again').onclick = () => isDaily ? startDailyGrammar() : runGramQuiz(it);
   };
+  const restartGram = () => {
+    if (!confirm('Start this quiz over from the beginning? Your answers in this attempt will be cleared. Word progress, unlocks, and best scores are kept.')) return;
+    clearAdvance();
+    L.clearResume(gram, it.id); saveGram();
+    it.type === 'gdaily' ? startDailyGrammar() : runGramQuiz(it);
+  };
   const next = () => {
     clearAdvance();
     if (!s.queue.length) return finish();
@@ -215,9 +221,10 @@ function showGramQ(it, s) {
     const q = s.questions[k];
     const ruleTag = q.title && it.type !== 'rule' ? `<p class="muted">${esc(q.title)}</p>` : '';
     app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(titleOf())} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
-      <div class="row">${soundBtn()}<button class="ghost" id="pause">Save & exit</button></div></div>${ruleTag}<p><b>${esc(q.q)}</b></p>
+      <div class="row">${soundBtn()}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">Save & exit</button></div></div>${ruleTag}<p><b>${esc(q.q)}</b></p>
       <div class="opts">${q.o.map((o, i) => `<button data-k="${i}">${esc(o)}</button>`).join('')}</div><div id="fb"></div></section>`;
-    $('#pause').onclick = back;
+    $('#rs').onclick = restartGram;
+    $('#pause').onclick = () => { persist(); back(); };
     let answered = false;
     app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
       if (answered) return; answered = true;
@@ -403,15 +410,19 @@ function profileView() {
   if ($('#rm')) $('#rm').onclick = () => { profile.photo = null; saveProfile(); profileView(); };
 }
 
-function startPractice(words) {
+function startPractice(words, id = 'practice') {
   const list = (words || []).filter(Boolean);
-  if (!list.length) return practiceView();
-  quiz(list, 'Practice words', true, WORDS, { type: 'practice', words: list });
+  if (!list.length) return id === 'missed' ? home() : practiceView();
+  const title = id === 'missed' ? 'Missed words' : 'Practice words';
+  quiz(list, title, true, WORDS, { type: 'practice', id, words: list });
 }
 function practiceView() {
   stopTrack(); onHome = false;
   const groupsAll = UNITS.map((u, i) => ({ i, words: u.filter(w => !L.isNew(prog, w)) })).filter(g => g.words.length);
   if (!groupsAll.length) return home();
+  const paused = gate.resume && gate.resume.practice;
+  const pausedWords = paused && (paused.keys || []).map(k => BYKEY[k]).filter(Boolean);
+  const canResume = pausedWords && pausedWords.length && L.validResume(paused, pausedWords);
   const selected = new Set(loadPracticeSel());
   let q = '';
   const learnedKeys = () => groupsAll.flatMap(g => g.words).map(L.key);
@@ -434,8 +445,9 @@ function practiceView() {
     const groups = groupsAll.map(g => ({ i: g.i, words: g.words.filter(hit) })).filter(g => g.words.length);
     const visKeys = groups.flatMap(g => g.words).map(L.key);
     const n = selCount();
+    const resume = canResume ? `<p class="fb ok">You have a practice session paused at ${paused.done}/${paused.total}. <button class="alt" id="pr">Resume</button></p>` : '';
     app.innerHTML = `<section class="card"><h2>Practice words</h2>
-      <p class="muted">Choose any words you have already started. This practice is optional and does not affect unlocks. Questions go both ways (word to meaning and meaning to word), and wrong answers come from the same unit.</p>
+      <p class="muted">Choose any words you have already started. This practice is optional and does not affect unlocks. Questions go both ways (word to meaning and meaning to word), and wrong answers come from the same unit.</p>${resume}
       <div class="row"><input type="search" id="ps" placeholder="Search words" value="${esc(q)}" aria-label="Search words" style="max-width:16rem">
         <button type="button" class="ghost" id="all">Select all</button>
         <button type="button" class="ghost" id="none">Select none</button>
@@ -447,6 +459,7 @@ function practiceView() {
       </div>`).join('') || '<p class="muted">No words match that search.</p>'}</div></section>`;
     paintChrome(groups);
     $('#h').onclick = home;
+    if ($('#pr')) $('#pr').onclick = () => startPractice(pausedWords, 'practice');
     const box = $('#ps');
     box.focus();
     const pos = box.value.length; box.setSelectionRange(pos, pos);
@@ -479,9 +492,13 @@ function practiceView() {
 function home() {
   stopTrack(); onHome = true; dayCheck(); if (!profile.survey) return surveyView(false); const dly = gate.daily, block = L.dailyBlocks(gate);
   const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
+  const pracRes = gate.resume && gate.resume.practice, missRes = gate.resume && gate.resume.missed;
+  const pracPaused = pracRes && Array.isArray(pracRes.queue) && pracRes.queue.length;
+  const missPaused = missRes && Array.isArray(missRes.queue) && missRes.queue.length;
   app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="buddy-home">${buddySvg('idle', 96)}<p class="buddy-line">${esc(buddyLine())}</p></div><div class="stats">
    <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
-   <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>Practice words</button>
+   <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>${pracPaused ? `Resume practice (${pracRes.done}/${pracRes.total})` : 'Practice words'}</button>
+   ${missPaused ? `<button class="alt" id="miss">Resume missed words (${missRes.done}/${missRes.total})</button>` : ''}
    <button class="ghost" id="data">Backup / restore</button></div>
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
    <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice words is optional and does not affect unlocks.</p>
@@ -489,7 +506,8 @@ function home() {
      const u = it.words, open = !block && L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
      const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
-     const btn = it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : res ? `Resume (${res.done}/${res.total})` : 'Start';
+     const resOk = res && Array.isArray(res.queue) && res.queue.length;
+     const btn = resOk ? `Resume (${res.done}/${res.total})` : it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : 'Start';
      return `<div class="unit ${it.type}${open ? '' : ' locked'}${pass ? ' passed' : ''}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'pair' ? `${u.length} words, fill-in sentences` : u.length + ' words'}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
      <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
@@ -497,6 +515,7 @@ function home() {
   wireTabs();
   if ($('#upd')) $('#upd').onclick = () => location.reload();
   $('#prac').onclick = practiceView;
+  if ($('#miss')) $('#miss').onclick = () => startPractice((missRes.keys || []).map(k => BYKEY[k]).filter(Boolean), 'missed');
   $('#data').onclick = backup;
   const guard = f => b => b.onclick = () => { const idx = +Object.values(b.dataset)[0]; if (!L.dailyBlocks(gate) && L.isUnlocked(PATH, idx, gate)) f(PATH[idx], idx); };
   app.querySelectorAll('[data-s]').forEach(guard(startStage));
@@ -507,6 +526,8 @@ function home() {
 function startStage(it, idx) {
   dayCheck(); if (L.dailyBlocks(gate) || !L.isUnlocked(PATH, idx, gate)) return home();
   const run = () => quiz(it.words, label(it), true, it.pool || it.words, it);
+  const paused = gate.resume && gate.resume[it.id];
+  if (paused && (L.resumeSnapshot(paused, it.words, BYKEY) || L.validResume(paused, it.words))) return run();
   if (it.type === 'unit') { const fresh = it.words.filter(w => L.isNew(prog, w));
     return fresh.length ? flash(fresh, `${label(it)}: meet the new words`, run, false) : run(); }
   run();
@@ -543,27 +564,27 @@ function flash(words, title, then, graded = true) {
 // stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   onHome = false; startTrack();
-  const keep = stage && stage.type !== 'unit' && stage.type !== 'practice';
+  const keep = !!(stage && stage.id);
   let s = null, clozeMap = {};
+  const take = (raw, list) => raw && L.validResume(raw, list) ? L.rehydrateSession(raw, BYKEY) : null;
   if (stage && stage.type === 'daily2') {
     const halfN = L.halfCount(words.length);
     const snap = gate.resume.daily2;
-    if (snap && L.validResume(snap, (snap.keys || []).map(k => BYKEY[k]).filter(Boolean)) && snap.keys.length === halfN) {
-      s = snap; words = s.keys.map(k => BYKEY[k]); clozeMap = snap.cloze || {};
-    } else {
-      words = L.pickHalf(words.map(L.key)).map(k => BYKEY[k]);
-    }
+    const snapWords = snap && (snap.keys || []).map(k => BYKEY[k]).filter(Boolean);
+    s = (snapWords && snapWords.length === halfN) ? take(snap, snapWords) : null;
+    if (s) { words = s.keys.map(k => BYKEY[k]); clozeMap = s.cloze || {}; }
+    else words = L.pickHalf(words.map(L.key)).map(k => BYKEY[k]);
     pool = words;
   } else if (stage && stage.type === 'pair') {
-    if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; clozeMap = s.cloze || {}; }
+    s = take(gate.resume[stage.id], words); if (s) clozeMap = s.cloze || {};
     pool = stage.pool || stage.words;
   } else if (stage && (stage.type === 'review' || stage.type === 'daily')) {
     // Resume an in-progress snapshot if it still covers this review's words; new runs use the review's own list.
     const snap = L.resumeSnapshot(gate.resume[stage.id], words, BYKEY);
-    if (snap) { s = gate.resume[stage.id]; words = snap; }
-    else if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; s.keys = words.map(L.key); } // older paused run
+    if (snap) { s = L.rehydrateSession(gate.resume[stage.id], BYKEY); words = snap; }
+    else { s = take(gate.resume[stage.id], words); if (s) s.keys = words.map(L.key); }
     pool = words;
-  } else if (keep && L.validResume(gate.resume[stage.id], words)) s = gate.resume[stage.id];
+  } else if (keep) s = take(gate.resume[stage.id], words);
   if (!words.length) return home();
   if (!s) s = L.newSession(words.map(L.key));
   if (stage && stage.type === 'recall' && s.recallOff == null) s.recallOff = Math.random() < 0.5 ? 0 : 1;
@@ -574,17 +595,29 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     if (stage.type === 'daily2' || stage.type === 'pair') s.cloze = clozeMap;
     gate.resume[stage.id] = s; saveGate();
   };
+  const restartQuiz = () => {
+    if (!confirm('Start this quiz over from the beginning? Your answers in this attempt will be cleared. Word progress, unlocks, and best scores are kept.')) return;
+    clearAdvance();
+    L.clearResume(gate, stage && stage.id); saveGate();
+    if (stage && stage.type === 'daily') return startDaily();
+    if (stage && stage.type === 'daily2') return startDailyPart2();
+    if (stage && stage.type === 'recall') return startRecall();
+    if (stage && stage.type === 'practice') return startPractice(stage.words, stage.id);
+    if (stage) return quiz(stage.words, title, intro, stage.pool || stage.words, stage);
+    quiz(words, title, intro, pool, stage);
+  };
   persist();
   const next = () => {
     clearAdvance();
     if (!s.queue.length) {
       let result = null;
       if (stage) {
-        if (keep) delete gate.resume[stage.id];
+        L.clearResume(gate, stage.id);
         if (stage.type === 'daily') {
           result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 1);
           if (result.perfect) gate.daily.part1Keys = s.keys.slice();
         } else if (stage.type === 'daily2') result = L.recordDaily(gate, stage.day, s.total, s.missed.length, 2);
+        else if (stage.type === 'practice') result = null;
         else result = L.recordAttempt(gate, stage.id, s.total, s.missed.length);
         saveGate();
       }
@@ -613,6 +646,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
         s.curQ = { k, q };
       } else q = s.curQ.q;
     }
+    persist();
     const w = q.w, type = q.type, opts = q.options;
     const labelOf = o => type === 'cloze' ? o.fill : type === 'def2word' ? o.w : o.d;
     const rawOf = o => type === 'cloze' ? o.w : o;
@@ -629,8 +663,9 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
     const reviewBtn = (stage && stage.type === 'unit') ? '<button class="ghost" id="peek">Review words</button>' : '';
     app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><div class="buddy-quiz" id="buddy">${buddySvg('idle', 52)}</div><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
-      <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
-    $('#pause').onclick = (stage && (stage.type === 'recall' || stage.type === 'daily' || stage.type === 'daily2')) ? dailyView : home;
+      <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
+    $('#rs').onclick = restartQuiz;
+    $('#pause').onclick = () => { persist(); (stage && (stage.type === 'recall' || stage.type === 'daily' || stage.type === 'daily2') ? dailyView : home)(); };
     if ($('#peek')) $('#peek').onclick = () => {
       const unitWords = stage.words;
       app.innerHTML = `<section class="card"><h2>Review these words</h2><p class="muted">This does not change your quiz progress or score. Return to the same question when you are ready.</p>
@@ -703,13 +738,13 @@ function done(title, total, m, stage, result) {
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
    ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
    <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${backDaily ? 'Back to Daily Review' : 'Back to path'}</button>${backDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
-  $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => isPractice ? startPractice(m) : quiz(m, 'Missed words');
-  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words) : startStage(stage, idx);
+  $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => startPractice(m, 'missed');
+  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words, stage.id) : startStage(stage, idx);
 }
 
 function backup() {
   stopTrack();
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, paused tests, Daily Review, grammar scores, your goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, your goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
   $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));

@@ -388,6 +388,45 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
 }
 
 
+
+// Mid-session resume: rehydrate after JSON so option identity still matches; clearResume is attempt-only
+{ const u = path.find(x => x.id === 'u0'), BY = Object.fromEntries(W.map(w => [L.key(w), w]));
+  const q = L.buildQuestion(u, L.key(u.words[0]), 0, BY, () => 0.4);
+  const raw = JSON.parse(JSON.stringify(q));
+  assert(raw.w !== q.w); // identity is lost in JSON
+  const q2 = L.rehydrateQuestion(raw, BY);
+  assert.strictEqual(q2.w, u.words[0]);
+  assert(q2.options.includes(q2.w));
+  assert(q2.options.every(o => u.pool.includes(o) || u.words.includes(o) || W.includes(o)));
+  const chosen = q2.options.find(o => o === q2.w);
+  assert.strictEqual(chosen, q2.w);
+  const C = require('./cloze.js');
+  const cq = L.buildClozeQuestion(u.words[0], u.pool || u.words, C[L.key(u.words[0])], null, () => 0.3);
+  const cq2 = L.rehydrateQuestion(JSON.parse(JSON.stringify(cq)), BY);
+  assert.strictEqual(cq2.w, u.words[0]);
+  assert(cq2.options.some(o => o.w === cq2.w && o.fill === cq2.fill));
+  const sess = L.newSession(u.words.map(L.key));
+  sess.curQ = { k: L.key(u.words[0]), q };
+  L.answerSession(sess, true);
+  sess.curQ = { k: sess.queue[0].k, q: L.buildQuestion(u, sess.queue[0].k, sess.qi, BY, () => 0.2) };
+  const G = L.newGate(); G.passed.u0 = 1; G.best.u0 = 100; G.resume.u0 = JSON.parse(JSON.stringify(sess));
+  const round = L.importData(L.exportData({}, G));
+  assert.deepStrictEqual(round.gate.passed, G.passed);
+  assert.deepStrictEqual(round.gate.best, G.best);
+  const back = L.rehydrateSession(round.gate.resume.u0, BY);
+  assert(L.validResume(back, u.words));
+  assert.strictEqual(back.done, 1); assert.strictEqual(back.missed.length, 0);
+  assert.strictEqual(back.curQ.q.w, BY[back.curQ.k]);
+  assert(back.curQ.q.options.includes(back.curQ.q.w));
+  L.clearResume(G, 'u0');
+  assert.strictEqual(G.resume.u0, undefined);
+  assert.strictEqual(G.passed.u0, 1); assert.strictEqual(G.best.u0, 100);
+  const gram = { passed: { tense: 1 }, gbest: { tense: 100 }, resume: { tense: { queue: [1] } } };
+  L.clearResume(gram, 'tense');
+  assert.strictEqual(gram.resume.tense, undefined);
+  assert.strictEqual(gram.passed.tense, 1); assert.strictEqual(gram.gbest.tense, 100);
+}
+
 // Click-to-advance after feedback: enabled controls are left alone; disabled answers and blank areas advance
 { const btn = { tagName: 'BUTTON', disabled: false }; assert.strictEqual(L.advanceClickOk(btn), false);
   assert.strictEqual(L.advanceClickOk({ tagName: 'BUTTON', disabled: true }), true);
