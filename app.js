@@ -40,7 +40,26 @@ const flushTrack = (now = Date.now()) => {
   trackT0 = (trackOn && document.visibilityState === 'visible' && !isIdle(now)) ? now : 0;
 };
 const startTrack = () => { flushTrack(); trackOn = true; lastInput = Date.now(); trackT0 = Date.now(); };
-const stopTrack = () => { flushTrack(); trackOn = false; trackT0 = 0; };
+let disarmAdvance = null;
+const clearAdvance = () => { if (disarmAdvance) { disarmAdvance(); disarmAdvance = null; } };
+// After feedback shows, a later click/tap anywhere advances. The answer-click itself is ignored
+// (armed on the next turn). Enabled controls (Sound, Pause, Continue, links) keep their own behavior.
+function armAdvance(go) {
+  clearAdvance();
+  let armed = false;
+  const on = e => {
+    if (!armed || e.type !== 'click') return;
+    const hit = e.target && e.target.closest && e.target.closest('a[href], button, input, textarea, select, label');
+    if (hit && !L.advanceClickOk(hit)) return;
+    clearAdvance();
+    go();
+  };
+  const disarm = () => { document.removeEventListener('click', on, true); armed = false; };
+  disarmAdvance = disarm;
+  document.addEventListener('click', on, true);
+  setTimeout(() => { if (disarmAdvance === disarm) armed = true; }, 0);
+}
+const stopTrack = () => { clearAdvance(); flushTrack(); trackOn = false; trackT0 = 0; };
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushTrack();
   else if (trackOn) { lastInput = Date.now(); if (!trackT0) trackT0 = Date.now(); }
@@ -190,6 +209,7 @@ function showGramQ(it, s) {
     if ($('#again')) $('#again').onclick = () => isDaily ? startDailyGrammar() : runGramQuiz(it);
   };
   const next = () => {
+    clearAdvance();
     if (!s.queue.length) return finish();
     const { k, retry } = s.queue[0];
     const q = s.questions[k];
@@ -211,7 +231,7 @@ function showGramQ(it, s) {
         : `Not quite. You picked “${esc(exg.picked)}.” ${esc(exg.whyWrong)}<br>The correct answer is “${esc(exg.correct)}.” ${esc(exg.whyCorrect)}`;
       $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${fbText}${ok || retry ? '' : ' <span class="muted">This one will come back shortly.</span>'}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
-      $('#go').focus(); $('#go').onclick = next;
+      $('#go').focus(); $('#go').onclick = next; armAdvance(next);
     });
   };
   next();
@@ -556,6 +576,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   };
   persist();
   const next = () => {
+    clearAdvance();
     if (!s.queue.length) {
       let result = null;
       if (stage) {
@@ -628,7 +649,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${official}${filled}
         <p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
       app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
-      $('#go').focus(); $('#go').onclick = next;
+      $('#go').focus(); $('#go').onclick = next; armAdvance(next);
     };
     const lockInput = () => app.querySelectorAll('.opts button,#tf button,#ti').forEach(b => b.disabled = true);
     if (type === 'type' || type === 'typeDef') {

@@ -387,6 +387,20 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: L.newGate() })).profile, null);
 }
 
+
+// Click-to-advance after feedback: enabled controls are left alone; disabled answers and blank areas advance
+{ const btn = { tagName: 'BUTTON', disabled: false }; assert.strictEqual(L.advanceClickOk(btn), false);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'BUTTON', disabled: true }), true);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'BUTTON', getAttribute: n => n === 'disabled' ? '' : null }), true);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'BUTTON', disabled: false, getAttribute: () => null }), false);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'A', href: '#' }), false);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'INPUT', disabled: false }), false);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'LABEL', disabled: false }), false);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'P' }), true);
+  assert.strictEqual(L.advanceClickOk(null), true);
+  assert.strictEqual(L.advanceClickOk({ tagName: 'DIV' }), true);
+}
+
 // No future review dates/countdowns shown anywhere in the UI
 { const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
   assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }
