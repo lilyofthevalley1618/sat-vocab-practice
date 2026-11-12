@@ -506,7 +506,83 @@ function validGramResume(s, n) {
 }
 
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
-function exportData(prog, gate, grammar) { return JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} }); }
+// Profile: daily goals, active study time, optional photo. Kept separate from progress/unlocks.
+const WORDS_DAY_OPTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 10);
+const MINUTES_DAY_OPTS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90, 120];
+const PHOTO_BACKUP_MAX = 120000; // skip oversized data-URL photos in backups
+const newProfile = () => ({ survey: null, time: { totalMs: 0, days: {} }, photo: null });
+function normalizeSurvey(s) {
+  if (!s || typeof s !== 'object') return null;
+  let words = Number(s.wordsPerDay), mins = Number(s.minutesPerDay);
+  if (!Number.isFinite(words) || !Number.isFinite(mins)) return null;
+  words = Math.min(200, Math.max(10, Math.round(words / 10) * 10));
+  mins = Math.min(180, Math.max(5, Math.round(mins)));
+  const at = Number(s.at);
+  return { wordsPerDay: words, minutesPerDay: mins, at: Number.isFinite(at) && at > 0 ? at : 0 };
+}
+function sanitizeProfile(p, forBackup = false) {
+  if (!p || typeof p !== 'object') return newProfile();
+  const time = { totalMs: 0, days: {} };
+  if (p.time && typeof p.time === 'object') {
+    const tot = Number(p.time.totalMs);
+    if (Number.isFinite(tot) && tot > 0) time.totalMs = Math.round(tot);
+    if (p.time.days && typeof p.time.days === 'object') {
+      for (const [d, ms] of Object.entries(p.time.days)) {
+        const n = Number(ms);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isFinite(n) && n > 0) time.days[d] = Math.round(n);
+      }
+    }
+  }
+  let photo = null;
+  if (typeof p.photo === 'string' && /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(p.photo) && p.photo.length > 32) {
+    if (!forBackup || p.photo.length <= PHOTO_BACKUP_MAX) photo = p.photo;
+  }
+  return { survey: normalizeSurvey(p.survey), time, photo };
+}
+function addActiveTime(profile, ms, now = Date.now()) {
+  const p = profile && typeof profile === 'object' ? profile : newProfile();
+  p.time = p.time || { totalMs: 0, days: {} };
+  p.time.days = p.time.days || {};
+  const add = Math.max(0, Math.min(Math.round(Number(ms) || 0), 5 * 60 * 1000));
+  if (!add) return p;
+  const day = laDay(now);
+  p.time.totalMs = (p.time.totalMs || 0) + add;
+  p.time.days[day] = (p.time.days[day] || 0) + add;
+  return p;
+}
+const todayMs = (profile, now = Date.now()) => (profile && profile.time && profile.time.days && profile.time.days[laDay(now)]) || 0;
+function formatDuration(ms) {
+  const m = Math.floor(Math.max(0, Math.round(Number(ms) || 0)) / 60000);
+  if (m < 1) return 'less than 1 min';
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? h + ' hr ' + r + ' min' : h + ' hr';
+}
+function addCalendarDays(iso, n) {
+  const p = String(iso || '').split('-').map(Number);
+  if (p.length !== 3 || !p.every(Number.isFinite)) return iso;
+  const dt = new Date(Date.UTC(p[0], p[1] - 1, p[2] + Number(n || 0)));
+  return dt.toISOString().slice(0, 10);
+}
+function formatDate(iso) {
+  const p = String(iso || '').split('-').map(Number);
+  if (p.length !== 3 || !p.every(Number.isFinite)) return iso || '';
+  const months = 'January February March April May June July August September October November December'.split(' ');
+  return months[p[1] - 1] + ' ' + p[2] + ', ' + p[0];
+}
+function projectFinish(learned, wordsPerDay, total = 384, now = Date.now()) {
+  const have = Math.max(0, Number(learned) || 0), goal = Math.max(0, Number(wordsPerDay) || 0), all = Math.max(0, Number(total) || 0);
+  const today = laDay(now);
+  if (have >= all) return { done: true, date: today, daysLeft: 0 };
+  if (!goal) return { done: false, date: null, daysLeft: null };
+  const daysLeft = Math.ceil((all - have) / goal);
+  return { done: false, date: addCalendarDays(today, daysLeft - 1), daysLeft };
+}
+function exportData(prog, gate, grammar, profile) {
+  const out = { app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} };
+  if (profile) out.profile = sanitizeProfile(profile, true);
+  return JSON.stringify(out);
+}
 function importData(text) {
   const o = JSON.parse(text);
   if (!o || o.app !== 'sat-vocab-practice' || typeof o.progress !== 'object' || !o.progress) throw new Error('Not a valid backup file');
@@ -526,7 +602,12 @@ function importData(text) {
     if (typeof o.grammar !== 'object') throw new Error('Bad grammar data');
     grammar = migrateGrammar(o.grammar);
   }
-  return { progress: o.progress, gate, grammar };
+  let profile = null;
+  if (o.profile != null) {
+    if (typeof o.profile !== 'object') throw new Error('Bad profile data');
+    profile = sanitizeProfile(o.profile, false);
+  }
+  return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, laDay, ensureDaily, dailyBlocks, recordDaily, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

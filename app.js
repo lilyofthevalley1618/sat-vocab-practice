@@ -19,14 +19,38 @@ const ding = () => L.playDing(soundOn, getCtx);
 const soundBtn = () => `<button class="ghost" id="snd" aria-pressed="${soundOn}" title="Play a ding on correct answers">Sound: ${soundOn ? 'On' : 'Off'}</button>`;
 document.addEventListener('click', e => { if (e.target && e.target.id === 'snd') { soundOn = !soundOn; localStorage.setItem(SNDKEY, soundOn ? 'on' : 'off'); e.target.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); e.target.setAttribute('aria-pressed', soundOn); } });
 const RKEY = 'satGrammar.v1'; let gram = Object.assign({ passed: {}, resume: {} }, L.migrateGrammar(JSON.parse(localStorage.getItem(RKEY) || '{}'))); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
+const FKEY = 'satVocabProfile.v1';
+let profile = L.newProfile();
+try { const raw = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (raw) profile = L.sanitizeProfile(raw); } catch (e) {}
+const saveProfile = () => { try { localStorage.setItem(FKEY, JSON.stringify(L.sanitizeProfile(profile))); } catch (e) {} };
 const GPATH = L.makeGrammarPath(GRAMMAR), BYGRAM = Object.fromEntries(GRAMMAR.map(t => [t.id, t]));
-const dayCheck = () => { let ch = false; if (L.ensureDaily(gate, prog)) { saveGate(); ch = true; } if (L.ensureDailyGrammar(gram, GPATH)) { saveGram(); ch = true; } if (ch && onHome) home(); };  // re-renders the Path tab on a new day
+const dayCheck = () => { let ch = false; if (L.ensureDaily(gate, prog)) { saveGate(); ch = true; } if (L.ensureDailyGrammar(gram, GPATH)) { saveGram(); ch = true; } if (ch && onHome && profile.survey) home(); };
 dayCheck(); setInterval(dayCheck, 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && dayCheck());
+// Active study time: only while a lesson/quiz/review is open, the tab is visible, and the user is not idle.
+const IDLE_MS = 60000;
+let trackOn = false, trackT0 = 0, lastInput = Date.now();
+const markInput = () => { lastInput = Date.now(); };
+const isIdle = (now = Date.now()) => now - lastInput > IDLE_MS;
+const flushTrack = (now = Date.now()) => {
+  if (!trackOn || !trackT0) { if (trackOn && document.visibilityState === 'visible' && !isIdle(now)) trackT0 = now; return; }
+  const end = document.visibilityState !== 'visible' ? now : (isIdle(now) ? lastInput : now);
+  const ms = Math.max(0, end - trackT0);
+  if (ms > 250) { L.addActiveTime(profile, ms, now); saveProfile(); }
+  trackT0 = (trackOn && document.visibilityState === 'visible' && !isIdle(now)) ? now : 0;
+};
+const startTrack = () => { flushTrack(); trackOn = true; lastInput = Date.now(); trackT0 = Date.now(); };
+const stopTrack = () => { flushTrack(); trackOn = false; trackT0 = 0; };
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushTrack();
+  else if (trackOn) { lastInput = Date.now(); if (!trackT0) trackT0 = Date.now(); }
+});
+['pointerdown', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach(ev => document.addEventListener(ev, markInput, { passive: true, capture: true }));
+setInterval(() => { if (trackOn) flushTrack(); }, 15000);
 const dailyStage = () => { const ws = gate.daily.words.map(k => BYKEY[k]).filter(Boolean); return { type: 'daily', id: 'daily', day: gate.daily.day, words: ws, pool: ws }; };
 const label = it => it.type === 'unit' ? `Unit ${it.i + 1}` : it.type === 'review' ? `Cumulative Review: Units 1–${it.b + 1}` : it.type === 'pair' ? (it.from === it.to ? `Unit ${it.from + 1} Review (fill in the blank)` : `Units ${it.from + 1}–${it.to + 1} Review (fill in the blank)`) : it.type === 'big' ? `Big Test ${it.n} (Units ${it.from + 1}–${it.to + 1})` : 'Final Test (all 384 words)';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-$('#home').onclick = e => { e.preventDefault(); home(); };
+$('#home').onclick = e => { e.preventDefault(); profile.survey ? home() : surveyView(false); };
 
 // Tell long-open tabs when a newer version has been published.
 const VERSION = document.querySelector('meta[name=app-version]').content;
@@ -55,8 +79,8 @@ const startRecall = () => {
   if (!words.length) return dailyView();
   quiz(words, 'Recent Words Recall', false, words, { type: 'recall', id: 'recall', words });
 };
-const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${(L.dailyBlocks(gate) || L.grammarDailyBlocks(gram)) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button>${soundBtn()}</nav>`;
-const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; };
+const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${(L.dailyBlocks(gate) || L.grammarDailyBlocks(gram)) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button><button class="${cur === 'profile' ? '' : 'ghost'}" id="tabProf">Profile</button>${soundBtn()}</nav>`;
+const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; $('#tabProf').onclick = profileView; };
 // Grammar Rules tab: a gated path separate from the vocab path and vocab Daily Review.
 const gLabel = it => it.type === 'rule' ? it.topic.title : it.type === 'exam' ? 'Part 1 Exam' : it.type === 'review' ? 'Part 2 Review ' + (Number(String(it.id).replace('g-rev', '')) + 1) : 'Grammar Final Exam';
 const gSub = it => {
@@ -66,7 +90,7 @@ const gSub = it => {
   return '70 questions on all 28 rules. You need 100% on the first try to finish the path.';
 };
 function grammarView() {
-  onHome = false;
+  stopTrack(); onHome = false;
   L.ensureDailyGrammar(gram, GPATH);
   const dailyDue = L.grammarDailyBlocks(gram);
   const banner = dailyDue ? `<p class="fb no">Today's grammar review is on the <b>Daily Review</b> tab. Finish it before you start a new grammar step. It does not gate your vocab path.</p>` : '';
@@ -95,6 +119,7 @@ function startGramStep(it, idx) {
   runGramQuiz(it);
 }
 function topicView(it, idx) {
+  startTrack();
   const t = it.topic;
   const note = t.note ? `<p><b>In plain language:</b> ${esc(t.note).replace(/\n/g, '<br>')}</p>` : '';
   app.innerHTML = tabs('grammar') + `<section class="card"><h2>${esc(t.title)}</h2>${note}<p><b>Rule:</b> ${esc(t.rule)}</p><p><b>Common trap:</b> ${esc(t.trap)}</p>
@@ -118,6 +143,7 @@ function startDailyGrammar() {
   showGramQ({ type: 'gdaily', id: 'daily', title: 'Daily grammar review' }, s);
 }
 function runGramQuiz(it) {
+  startTrack();
   const expectedN = it.type === 'rule' ? it.topic.qs.length : it.n;
   let s = gram.resume && gram.resume[it.id];
   if (!L.validGramResume(s, expectedN)) {
@@ -191,7 +217,7 @@ function showGramQ(it, s) {
   next();
 }
 function dailyView() {
-  onHome = true; dayCheck(); const dly = gate.daily;
+  stopTrack(); onHome = true; dayCheck(); const dly = gate.daily;
   const nToday = dly.words.length;
   const half = nToday ? L.halfCount(nToday) : 0;
   const paused1 = gate.resume.daily, paused2 = gate.resume.daily2;
@@ -248,13 +274,122 @@ function dailyView() {
   wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall; if ($('#gDaily')) $('#gDaily').onclick = startDailyGrammar;
 }
 
+
+function buddySvg(mood = 'idle', size = 96) {
+  const h = Math.round(size * 1.4);
+  const eyes = mood === 'happy'
+    ? '<path d="M31 54 q4 -5 8 0" fill="none" stroke="#2e3a43" stroke-width="2.2" stroke-linecap="round"/><path d="M43 54 q4 -5 8 0" fill="none" stroke="#2e3a43" stroke-width="2.2" stroke-linecap="round"/>'
+    : mood === 'sad'
+    ? '<circle cx="35" cy="55" r="3.2" fill="#2e3a43"/><circle cx="47" cy="55" r="3.2" fill="#2e3a43"/><path d="M30 49 q5 3 10 0" fill="none" stroke="#2e3a43" stroke-width="1.4" stroke-linecap="round"/><path d="M42 49 q5 3 10 0" fill="none" stroke="#2e3a43" stroke-width="1.4" stroke-linecap="round"/><circle cx="36.2" cy="56" r="1" fill="#fff"/><circle cx="48.2" cy="56" r="1" fill="#fff"/>'
+    : '<circle cx="35" cy="54" r="3.4" fill="#2e3a43"/><circle cx="47" cy="54" r="3.4" fill="#2e3a43"/><circle cx="36.2" cy="52.8" r="1.1" fill="#fff"/><circle cx="48.2" cy="52.8" r="1.1" fill="#fff"/>';
+  const mouth = mood === 'happy'
+    ? '<path d="M35 63 q6 7 12 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>'
+    : mood === 'sad'
+    ? '<path d="M36 67 q5 -5 10 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>'
+    : '<path d="M36 63 q5 4 10 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>';
+  const spark = mood === 'happy' ? '<path d="M58 36 l1.4 3.2 3.2 1.4 -3.2 1.4 -1.4 3.2 -1.4 -3.2 -3.2 -1.4 3.2 -1.4 z" fill="#C4B3D6"/>' : '';
+  return `<svg class="buddy" width="${size}" height="${h}" viewBox="0 0 80 112" role="img" aria-label="Study buddy, a friendly pencil"><ellipse cx="40" cy="106" rx="16" ry="3.8" fill="#2e3a43" opacity=".1"/><path d="M32 86 L40 108 L48 86 Z" fill="#E8D5B0"/><path d="M37.2 98 L40 108 L42.8 98 Z" fill="#2e3a43"/><rect x="24" y="26" width="32" height="62" rx="5" fill="#E0E6D4" stroke="#8A9778" stroke-width="1.6"/><rect x="24" y="26" width="7" height="62" rx="3" fill="#C5D0B4"/><rect x="22.5" y="18" width="35" height="10" rx="1.5" fill="#cfe3f3" stroke="#4f7ea6" stroke-width="1.2"/><path d="M26 18 V11 Q26 5 40 5 Q54 5 54 11 V18 Z" fill="#C4B3D6"/><ellipse cx="40" cy="8.5" rx="9" ry="2.6" fill="#D8C8E4"/><path d="M24 58 Q12 62 16 74" fill="none" stroke="#8A9778" stroke-width="2.3" stroke-linecap="round"/><path d="M56 58 Q68 62 64 74" fill="none" stroke="#8A9778" stroke-width="2.3" stroke-linecap="round"/><circle cx="33" cy="60" r="3.2" fill="#E8B8B0" opacity=".55"/><circle cx="49" cy="60" r="3.2" fill="#E8B8B0" opacity=".55"/>${eyes}${mouth}${spark}</svg>`;
+}
+function buddyLine() {
+  const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
+  const goal = profile.survey && profile.survey.minutesPerDay;
+  const today = L.todayMs(profile);
+  if (!learned) return 'Welcome. Let\'s learn a few words today.';
+  if (L.dailyBlocks(gate)) return 'Daily Review is waiting — you\'ve got this.';
+  if (goal && today >= goal * 60000) return 'You hit today\'s time goal. Nice work!';
+  if (learned >= 384) return 'You learned every word. That\'s wonderful.';
+  if (learned >= 200) return 'Look how far you\'ve come. Keep going!';
+  return 'One word at a time — you\'re doing great.';
+}
+function surveyView(retake = false) {
+  stopTrack(); onHome = false;
+  if (!retake && profile.survey) return home();
+  const cur = profile.survey || { wordsPerDay: 20, minutesPerDay: 30 };
+  const mins = L.MINUTES_DAY_OPTS.slice();
+  if (mins.indexOf(cur.minutesPerDay) < 0) mins.push(cur.minutesPerDay), mins.sort((a, b) => a - b);
+  const wordOpts = L.WORDS_DAY_OPTS.map(n => `<option value="${n}" ${n === cur.wordsPerDay ? 'selected' : ''}>${n} words</option>`).join('');
+  const minOpts = mins.map(n => `<option value="${n}" ${n === cur.minutesPerDay ? 'selected' : ''}>${n} minutes</option>`).join('');
+  app.innerHTML = (retake ? tabs('profile') : '') + `<section class="card survey"><div class="buddy-home">${buddySvg('idle', 88)}<div>
+    <h2>${retake ? 'Update your goals' : 'Welcome'}</h2>
+    <p>${retake ? 'You can change these as often as you like. Your progress and unlocks stay the same.' : 'A couple of quick questions to set a daily pace. You can change your answers anytime in Profile.'}</p></div></div>
+    <label for="wd">How many new words do you want to learn per day?</label>
+    <select id="wd">${wordOpts}</select>
+    <label for="md">How many minutes do you want to practice each day?</label>
+    <select id="md">${minOpts}</select>
+    <div class="row" style="margin-top:1rem"><button id="sv">Save</button>${retake ? '<button class="ghost" id="h">Back</button>' : ''}</div></section>`;
+  if (retake) wireTabs();
+  $('#sv').onclick = () => {
+    const s = L.normalizeSurvey({ wordsPerDay: +$('#wd').value, minutesPerDay: +$('#md').value, at: Date.now() });
+    if (!s) return;
+    profile.survey = s; saveProfile();
+    retake ? profileView() : home();
+  };
+  if ($('#h')) $('#h').onclick = profileView;
+}
+function resizePhoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 256;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = 0.85, data = c.toDataURL('image/jpeg', q);
+      while (data.length > 100000 && q > 0.5) { q -= 0.1; data = c.toDataURL('image/jpeg', q); }
+      resolve(data);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+    img.src = url;
+  });
+}
+function profileView() {
+  stopTrack(); onHome = false;
+  if (!profile.survey) return surveyView(false);
+  const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
+  const s = profile.survey;
+  const today = L.todayMs(profile), total = (profile.time && profile.time.totalMs) || 0;
+  const goalMs = s.minutesPerDay * 60000;
+  const pct = Math.min(100, Math.round((today / goalMs) * 100));
+  const fin = L.projectFinish(learned, s.wordsPerDay, 384);
+  const finishLine = learned >= 384
+    ? 'You have learned all 384 words.'
+    : `At ${s.wordsPerDay} words a day, you would finish all 384 words on <b>${esc(L.formatDate(fin.date))}</b> (${fin.daysLeft} day${fin.daysLeft === 1 ? '' : 's'}).`;
+  const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 80)}</div>`;
+  app.innerHTML = tabs('profile') + `<section class="card">
+    <div class="profile-head">${photo}<div><h2>Profile</h2><p class="muted">Goals, study time, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
+    <p><b>Today:</b> ${esc(L.formatDuration(today))} of ${s.minutesPerDay} min goal</p>
+    <div class="timebar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Today's time toward your goal"><i style="width:${pct}%"></i></div>
+    <p><b>Total learning time:</b> ${esc(L.formatDuration(total))}</p>
+    <p><b>Pace:</b> ${s.wordsPerDay} words per day</p>
+    <p><b>Words learned so far:</b> ${learned} of 384</p>
+    <p>${finishLine}</p>
+    <div class="row" style="margin-top:1rem">
+      <button class="alt" id="goals">Update goals</button>
+      <label class="btn" style="background:var(--sage);color:var(--ink)">Upload photo<input type="file" id="ph" accept="image/*" hidden></label>
+      ${profile.photo ? '<button class="ghost" id="rm">Remove photo</button>' : ''}
+    </div>
+    <p class="muted" id="pmsg"></p>
+  </section>`;
+  wireTabs();
+  $('#goals').onclick = () => surveyView(true);
+  $('#ph').onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try { profile.photo = await resizePhoto(f); saveProfile(); profileView(); }
+    catch (err) { $('#pmsg').textContent = err.message || 'Could not use that image.'; }
+  };
+  if ($('#rm')) $('#rm').onclick = () => { profile.photo = null; saveProfile(); profileView(); };
+}
+
 function startPractice(words) {
   const list = (words || []).filter(Boolean);
   if (!list.length) return practiceView();
   quiz(list, 'Practice words', true, WORDS, { type: 'practice', words: list });
 }
 function practiceView() {
-  onHome = false;
+  stopTrack(); onHome = false;
   const groupsAll = UNITS.map((u, i) => ({ i, words: u.filter(w => !L.isNew(prog, w)) })).filter(g => g.words.length);
   if (!groupsAll.length) return home();
   const selected = new Set(loadPracticeSel());
@@ -322,9 +457,9 @@ function practiceView() {
 }
 
 function home() {
-  onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
+  stopTrack(); onHome = true; dayCheck(); if (!profile.survey) return surveyView(false); const dly = gate.daily, block = L.dailyBlocks(gate);
   const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
-  app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="stats">
+  app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="buddy-home">${buddySvg('idle', 96)}<p class="buddy-line">${esc(buddyLine())}</p></div><div class="stats">
    <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
    <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>Practice words</button>
    <button class="ghost" id="data">Backup / restore</button></div>
@@ -358,17 +493,18 @@ function startStage(it, idx) {
 }
 
 function list(i) {
+  stopTrack();
   app.innerHTML = `<section class="card"><h2>Unit ${i + 1} words</h2><table><tr><th>Word</th><th>Meaning</th><th>Status</th></tr>${UNITS[i].map(w => {
     const p = prog[L.key(w)]; return `<tr><td><b>${esc(w.w)}</b> <span class="pos">${w.p}</span></td><td>${esc(w.d)}</td><td>${p ? 'In your Daily Review' : 'Not learned yet'}</td></tr>`;
   }).join('')}</table><p><button id="b">Back</button></p></section>`; $('#b').onclick = home;
 }
 
 function flash(words, title, then, graded = true) {
-  let n = 0, flipped = false; const again = [];
+  startTrack(); let n = 0, flipped = false; const again = [];
   const show = () => {
     if (n >= words.length) return then ? then() : done(title, words.length, again);
     const w = words[n];
-    app.innerHTML = `<section class="card"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p>
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p><div class="buddy-quiz">${buddySvg('idle', 48)}</div></div>
      <div class="flash card" id="fc" tabindex="0" role="button" aria-label="Flip card">${flipped || !graded ? `<div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span><p>${esc(w.d)}</p>${w.e ? `<p class="ex">“${L.markExample(w.e, w)}”</p>` : ''}` : `<div class="word">${esc(w.w)}</div><p class="muted">Think of the meaning, then tap to flip</p>`}</div>
      <div class="row">${n ? '<button class="ghost" id="pv">Previous</button>' : ''}${graded ? (flipped ? `<button class="alt" id="y">I knew it</button><button id="n">Not yet</button>` : `<button id="fl">Flip</button>`) : `<button id="nx">Next</button>`}<button class="ghost" id="q">Exit</button></div></section>`;
     const flip = () => { if (graded) { flipped = true; show(); } };
@@ -386,7 +522,7 @@ function flash(words, title, then, graded = true) {
 // Quiz: a miss is graded once (first try) and retried later in the same session.
 // stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
-  onHome = false;
+  onHome = false; startTrack();
   const keep = stage && stage.type !== 'unit' && stage.type !== 'practice';
   let s = null, clozeMap = {};
   if (stage && stage.type === 'daily2') {
@@ -471,7 +607,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>` : `<div class="word">${esc(w.w)}</div>`}
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
     const reviewBtn = (stage && stage.type === 'unit') ? '<button class="ghost" id="peek">Review words</button>' : '';
-    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><div class="buddy-quiz" id="buddy">${buddySvg('idle', 52)}</div><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
       <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
     $('#pause').onclick = (stage && (stage.type === 'recall' || stage.type === 'daily' || stage.type === 'daily2')) ? dailyView : home;
     if ($('#peek')) $('#peek').onclick = () => {
@@ -484,6 +620,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     let answered = false;
     const answer = (ok, chosen, typed) => {
       if (answered) return; answered = true; if (ok) ding();
+      if ($('#buddy')) $('#buddy').innerHTML = buddySvg(ok ? 'happy' : 'sad', 52);
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
       L.answerSession(s, ok); s.curQ = null; persist();
       const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');
@@ -524,6 +661,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
 }
 
 function done(title, total, m, stage, result) {
+  stopTrack();
   const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
   const isDaily = stage && (stage.type === 'daily' || stage.type === 'daily2');
   const isRecall = stage && stage.type === 'recall';
@@ -549,12 +687,16 @@ function done(title, total, m, stage, result) {
 }
 
 function backup() {
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, paused tests, Daily Review and grammar scores. Download one to keep it safe or move it to another device.</p>
+  stopTrack();
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, paused tests, Daily Review, grammar scores, your goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
-  $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.exportData(prog, gate, gram)], { type: 'application/json' }));
-    a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores and paused tests.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+    a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+    $('#msg').textContent = skipped ? 'Backup downloaded. Your photo was skipped because it is large; it is still saved in this browser.' : ''; };
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
-home();
+function boot() { profile.survey ? home() : surveyView(false); }
+boot();

@@ -345,6 +345,48 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   assert.strictEqual(typeof L.withWeak, 'function'); assert.strictEqual(typeof L.weakWords, 'function'); // kept for backups
 }
 
+
+// Profile: survey, active time, finish date, backups (older backups stay valid)
+{ const NOW = Date.UTC(2026, 10, 12, 20); // Nov 12, 2026 12:00 Pacific
+  assert.strictEqual(L.laDay(NOW), '2026-11-12');
+  assert.deepStrictEqual(L.WORDS_DAY_OPTS[0], 10); assert.deepStrictEqual(L.WORDS_DAY_OPTS[L.WORDS_DAY_OPTS.length - 1], 200);
+  assert.strictEqual(L.normalizeSurvey(null), null);
+  assert.deepStrictEqual(L.normalizeSurvey({ wordsPerDay: 25, minutesPerDay: 12, at: 9 }), { wordsPerDay: 30, minutesPerDay: 12, at: 9 });
+  assert.strictEqual(L.normalizeSurvey({ wordsPerDay: 5, minutesPerDay: 1 }).wordsPerDay, 10);
+  assert.strictEqual(L.normalizeSurvey({ wordsPerDay: 5, minutesPerDay: 1 }).minutesPerDay, 5);
+  assert.strictEqual(L.normalizeSurvey({ wordsPerDay: 999, minutesPerDay: 500 }).wordsPerDay, 200);
+  assert.strictEqual(L.normalizeSurvey({ wordsPerDay: 999, minutesPerDay: 500 }).minutesPerDay, 180);
+  const pr = L.newProfile();
+  L.addActiveTime(pr, 90 * 1000, NOW);
+  assert.strictEqual(pr.time.totalMs, 90000);
+  assert.strictEqual(pr.time.days['2026-11-12'], 90000);
+  assert.strictEqual(L.todayMs(pr, NOW), 90000);
+  L.addActiveTime(pr, 10 * 60 * 1000, NOW); // capped at 5 min per flush
+  assert.strictEqual(pr.time.days['2026-11-12'], 90000 + 5 * 60 * 1000);
+  assert.strictEqual(L.formatDuration(30 * 1000), 'less than 1 min');
+  assert.strictEqual(L.formatDuration(5 * 60 * 1000), '5 min');
+  assert.strictEqual(L.formatDuration(65 * 60 * 1000), '1 hr 5 min');
+  assert.strictEqual(L.formatDuration(120 * 60 * 1000), '2 hr');
+  assert.strictEqual(L.addCalendarDays('2026-11-12', 19), '2026-12-01');
+  assert.strictEqual(L.formatDate('2026-12-01'), 'December 1, 2026');
+  assert.deepStrictEqual(L.projectFinish(384, 20, 384, NOW), { done: true, date: '2026-11-12', daysLeft: 0 });
+  assert.deepStrictEqual(L.projectFinish(364, 20, 384, NOW), { done: false, date: '2026-11-12', daysLeft: 1 });
+  assert.deepStrictEqual(L.projectFinish(364, 10, 384, NOW), { done: false, date: '2026-11-13', daysLeft: 2 });
+  assert.deepStrictEqual(L.projectFinish(0, 20, 384, NOW), { done: false, date: '2026-12-01', daysLeft: 20 });
+  pr.survey = L.normalizeSurvey({ wordsPerDay: 20, minutesPerDay: 30, at: NOW });
+  pr.photo = 'data:image/jpeg;base64,' + 'A'.repeat(40);
+  const exp = JSON.parse(L.exportData({}, L.newGate(), {}, pr));
+  assert(exp.profile && exp.profile.survey.wordsPerDay === 20 && exp.profile.photo.startsWith('data:image/jpeg'));
+  const got = L.importData(JSON.stringify(exp));
+  assert.strictEqual(got.profile.survey.wordsPerDay, 20);
+  assert.strictEqual(got.profile.time.days['2026-11-12'], pr.time.days['2026-11-12']);
+  assert.strictEqual(L.importData(L.exportData(P)).profile, null); // older exports have no profile
+  const huge = Object.assign({}, pr, { photo: 'data:image/jpeg;base64,' + 'B'.repeat(L.PHOTO_BACKUP_MAX + 10) });
+  const slim = JSON.parse(L.exportData({}, L.newGate(), {}, huge));
+  assert.strictEqual(slim.profile.photo, null); // oversized photo omitted from backup
+  assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: L.newGate() })).profile, null);
+}
+
 // No future review dates/countdowns shown anywhere in the UI
 { const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
   assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }
