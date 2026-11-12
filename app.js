@@ -336,9 +336,9 @@ function surveyView(retake = false) {
   if (mins.indexOf(cur.minutesPerDay) < 0) mins.push(cur.minutesPerDay), mins.sort((a, b) => a - b);
   const wordOpts = L.WORDS_DAY_OPTS.map(n => `<option value="${n}" ${n === cur.wordsPerDay ? 'selected' : ''}>${n} words</option>`).join('');
   const minOpts = mins.map(n => `<option value="${n}" ${n === cur.minutesPerDay ? 'selected' : ''}>${n} minutes</option>`).join('');
-  app.innerHTML = (retake ? tabs('profile') : '') + `<section class="card survey"><div class="buddy-home">${buddySvg('idle', 88)}<div>
+  app.innerHTML = (retake ? tabs('profile') : '') + `<section class="card survey"><div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<div>
     <h2>${retake ? 'Update your goals' : 'Welcome'}</h2>
-    <p>${retake ? 'You can change these as often as you like. Your progress and unlocks stay the same.' : 'A couple of quick questions to set a daily pace. You can change your answers anytime in Profile.'}</p></div></div>
+    <p class="muted">${retake ? 'You can change these as often as you like. Your progress and unlocks stay the same.' : 'A couple of quick questions to set a daily pace. You can change your answers anytime in Profile.'}</p></div></div>
     <label for="wd">How many new words do you want to learn per day?</label>
     <select id="wd">${wordOpts}</select>
     <label for="md">How many minutes do you want to practice each day?</label>
@@ -386,9 +386,9 @@ function profileView() {
     : `At ${s.wordsPerDay} words a day, you would finish all 384 words on <b>${esc(L.formatDate(fin.date))}</b> (${fin.daysLeft} day${fin.daysLeft === 1 ? '' : 's'}).`;
   const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 80)}</div>`;
   app.innerHTML = tabs('profile') + `<section class="card">
-    <div class="profile-head">${photo}<div><h2>Profile</h2><p class="muted">Goals, study time, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
+    <div class="row" style="margin-bottom:.7rem">${photo}<div><h2>Profile</h2><p class="muted">Goals, study time, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
     <p><b>Today:</b> ${esc(L.formatDuration(today))} of ${s.minutesPerDay} min goal</p>
-    <div class="timebar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Today's time toward your goal"><i style="width:${pct}%"></i></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Today's time toward your goal"><i style="width:${pct}%"></i></div>
     <p><b>Total learning time:</b> ${esc(L.formatDuration(total))}</p>
     <p><b>Pace:</b> ${s.wordsPerDay} words per day</p>
     <p><b>Words learned so far:</b> ${learned} of 384</p>
@@ -495,7 +495,7 @@ function home() {
   const pracRes = gate.resume && gate.resume.practice, missRes = gate.resume && gate.resume.missed;
   const pracPaused = pracRes && Array.isArray(pracRes.queue) && pracRes.queue.length;
   const missPaused = missRes && Array.isArray(missRes.queue) && missRes.queue.length;
-  app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="buddy-home">${buddySvg('idle', 96)}<p class="buddy-line">${esc(buddyLine())}</p></div><div class="stats">
+  app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<p class="muted">${esc(buddyLine())}</p></div><div class="stats">
    <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
    <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>${pracPaused ? `Resume practice (${pracRes.done}/${pracRes.total})` : 'Practice words'}</button>
    ${missPaused ? `<button class="alt" id="miss">Resume missed words (${missRes.done}/${missRes.total})</button>` : ''}
@@ -545,7 +545,7 @@ function flash(words, title, then, graded = true) {
   const show = () => {
     if (n >= words.length) return then ? then() : done(title, words.length, again);
     const w = words[n];
-    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p><div class="buddy-quiz">${buddySvg('idle', 48)}</div></div>
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${n + 1}/${words.length}</p><div class="row">${buddySvg('idle', 40)}</div></div>
      <div class="flash card" id="fc" tabindex="0" role="button" aria-label="Flip card">${flipped || !graded ? `<div class="word">${esc(w.w)}</div><span class="pos">${w.p}</span><p>${esc(w.d)}</p>${w.e ? `<p class="ex">“${L.markExample(w.e, w)}”</p>` : ''}` : `<div class="word">${esc(w.w)}</div><p class="muted">Think of the meaning, then tap to flip</p>`}</div>
      <div class="row">${n ? '<button class="ghost" id="pv">Previous</button>' : ''}${graded ? (flipped ? `<button class="alt" id="y">I knew it</button><button id="n">Not yet</button>` : `<button id="fl">Flip</button>`) : `<button id="nx">Next</button>`}<button class="ghost" id="q">Exit</button></div></section>`;
     const flip = () => { if (graded) { flipped = true; show(); } };
@@ -662,8 +662,8 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${w.p})</span></p>` : `<div class="word">${esc(w.w)}</div>`}
       <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
     const reviewBtn = (stage && stage.type === 'unit') ? '<button class="ghost" id="peek">Review words</button>' : '';
-    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><div class="buddy-quiz" id="buddy">${buddySvg('idle', 52)}</div><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
-      <div class="row">${soundBtn()}${reviewBtn}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">${esc(title)} · ${s.done}/${s.total} done · ${s.missed.length} missed on first try${retry ? ' · retry' : ''}</p>
+      <div class="row"><span id="buddy">${buddySvg('idle', 40)}</span>${soundBtn()}${reviewBtn}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">${keep ? 'Save & exit' : 'Exit'}</button></div></div>${body}<div id="fb"></div></section>`;
     $('#rs').onclick = restartQuiz;
     $('#pause').onclick = () => { persist(); (stage && (stage.type === 'recall' || stage.type === 'daily' || stage.type === 'daily2') ? dailyView : home)(); };
     if ($('#peek')) $('#peek').onclick = () => {
