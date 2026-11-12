@@ -529,11 +529,32 @@ function validGramResume(s, n) {
 }
 
 // v2 backups include unlocks, best scores and paused tests. v1 (word-only) files still import.
-// Profile: daily goals, active study time, optional photo. Kept separate from progress/unlocks.
+// Profile: daily goals, name, study buddy, active study time, optional photo. Kept separate from progress/unlocks.
 const WORDS_DAY_OPTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 10);
 const MINUTES_DAY_OPTS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90, 120];
 const PHOTO_BACKUP_MAX = 120000; // skip oversized data-URL photos in backups
-const newProfile = () => ({ survey: null, time: { totalMs: 0, days: {} }, photo: null });
+const NAME_MAX = 40;
+const DEFAULT_BUDDY = 'frog';
+const BUDDIES = [
+  { id: 'penguin', name: 'Penguin', file: 'buddy-penguin.webp' },
+  { id: 'bunny', name: 'Bunny', file: 'buddy-bunny.webp' },
+  { id: 'frog', name: 'Frog', file: 'buddy-frog.webp' },
+  { id: 'chick', name: 'Chick', file: 'buddy-chick.webp' },
+  { id: 'hamster', name: 'Hamster', file: 'buddy-hamster.webp' },
+  { id: 'seal', name: 'Seal', file: 'buddy-seal.webp' },
+  { id: 'cloud', name: 'Cloud', file: 'buddy-cloud.webp' },
+  { id: 'otter', name: 'Otter', file: 'buddy-otter.webp' },
+  { id: 'bear', name: 'Bear', file: 'buddy-bear.webp' },
+  { id: 'dino', name: 'Dino', file: 'buddy-dino.webp' }
+];
+const normalizeBuddy = id => BUDDIES.some(b => b.id === id) ? id : DEFAULT_BUDDY;
+function normalizeName(s) {
+  if (typeof s !== 'string') return null;
+  const t = s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  return t.slice(0, NAME_MAX);
+}
+const newProfile = () => ({ survey: null, time: { totalMs: 0, days: {} }, photo: null, buddy: DEFAULT_BUDDY, name: null });
 function normalizeSurvey(s) {
   if (!s || typeof s !== 'object') return null;
   let words = Number(s.wordsPerDay), mins = Number(s.minutesPerDay);
@@ -560,7 +581,7 @@ function sanitizeProfile(p, forBackup = false) {
   if (typeof p.photo === 'string' && /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(p.photo) && p.photo.length > 32) {
     if (!forBackup || p.photo.length <= PHOTO_BACKUP_MAX) photo = p.photo;
   }
-  return { survey: normalizeSurvey(p.survey), time, photo };
+  return { survey: normalizeSurvey(p.survey), time, photo, buddy: normalizeBuddy(p.buddy), name: normalizeName(p.name) };
 }
 function addActiveTime(profile, ms, now = Date.now()) {
   const p = profile && typeof profile === 'object' ? profile : newProfile();
@@ -641,5 +662,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

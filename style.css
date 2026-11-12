@@ -42,3 +42,9 @@ mark{background:#dfeaf5;color:inherit;border-radius:4px;padding:0 .15em;font-wei
 .profile-photo-empty{display:flex;align-items:center;justify-content:center;overflow:hidden}
 .survey label{display:block;margin:.85rem 0 .3rem}.survey select{font:inherit;padding:.55rem;border-radius:10px;border:2px solid var(--blue);background:var(--card);color:var(--ink);width:100%;max-width:320px}
 .opts button:disabled,#tf button:disabled,#ti:disabled{pointer-events:none}
+.buddy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.7rem;margin-top:.8rem}
+.buddy-pick{display:flex;flex-direction:column;align-items:center;gap:.35rem;padding:.7rem .4rem;background:var(--card);color:var(--ink);border:2px solid var(--blue);border-radius:14px;cursor:pointer;font:inherit}
+.buddy-pick img{width:88px;height:88px;object-fit:contain;display:block}
+.buddy-pick.selected{border-color:var(--sage-x);background:#F3F6EC}
+.name-prompt{margin:.2rem 0 1rem;padding:.7rem;border-radius:12px;background:var(--sage)}
+.name-prompt label{display:block;margin:0 0 .45rem}

@@ -306,9 +306,14 @@ function dailyView() {
 }
 
 
+function currentBuddy() {
+  const id = L.normalizeBuddy(profile && profile.buddy);
+  return L.BUDDIES.find(b => b.id === id) || L.BUDDIES.find(b => b.id === L.DEFAULT_BUDDY);
+}
 function buddySvg(mood = 'idle', size = 96) {
+  const b = currentBuddy();
   const cls = 'buddy' + (mood === 'happy' ? ' buddy-happy' : mood === 'sad' ? ' buddy-sad' : '');
-  return `<img class="${cls}" src="buddy-frog.webp?v=${VERSION}" width="${size}" alt="Study buddy, a friendly frog">`;
+  return `<img class="${cls}" src="${b.file}?v=${VERSION}" width="${size}" alt="Study buddy, a friendly ${b.name.toLowerCase()}">`;
 }
 function buddyLine() {
   const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
@@ -332,6 +337,9 @@ function surveyView(retake = false) {
   app.innerHTML = (retake ? tabs('profile') : '') + `<section class="card survey"><div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<div>
     <h2>${retake ? 'Update your goals' : 'Welcome'}</h2>
     <p class="muted">${retake ? 'You can change these as often as you like. Your progress and unlocks stay the same.' : 'A couple of quick questions to set a daily pace. You can change your answers anytime in Profile.'}</p></div></div>
+    <label for="nm">What's your name?</label>
+    <input type="text" id="nm" maxlength="${L.NAME_MAX}" value="${esc(profile.name || '')}" autocomplete="name" placeholder="Your name">
+    <p class="muted" id="nmsg"></p>
     <label for="wd">How many new words do you want to learn per day?</label>
     <select id="wd">${wordOpts}</select>
     <label for="md">How many minutes do you want to practice each day?</label>
@@ -341,6 +349,9 @@ function surveyView(retake = false) {
   $('#sv').onclick = () => {
     const s = L.normalizeSurvey({ wordsPerDay: +$('#wd').value, minutesPerDay: +$('#md').value, at: Date.now() });
     if (!s) return;
+    const name = L.normalizeName($('#nm').value);
+    if (!retake && !name) { $('#nmsg').textContent = 'Please enter your name.'; $('#nm').focus(); return; }
+    profile.name = name;
     profile.survey = s; saveProfile();
     retake ? profileView() : home();
   };
@@ -378,8 +389,13 @@ function profileView() {
     ? 'You have learned all 384 words.'
     : `At ${s.wordsPerDay} words a day, you would finish all 384 words on <b>${esc(L.formatDate(fin.date))}</b> (${fin.daysLeft} day${fin.daysLeft === 1 ? '' : 's'}).`;
   const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 56)}</div>`;
+  const title = profile.name ? `<h2>${esc(profile.name)}</h2><p class="muted">Profile</p>` : `<h2>Profile</h2>`;
+  const namePrompt = profile.name ? '' : `<div class="name-prompt"><label for="nmadd">Want to add your name? It will show here next to your picture. You can also add or change it later when you update your goals.</label>
+    <div class="row"><input type="text" id="nmadd" maxlength="${L.NAME_MAX}" placeholder="Your name" autocomplete="name"><button class="alt" id="savename">Save name</button></div>
+    <p class="muted" id="nmsg"></p></div>`;
   app.innerHTML = tabs('profile') + `<section class="card">
-    <div class="row" style="margin-bottom:.7rem">${photo}<div><h2>Profile</h2><p class="muted">Goals, study time, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
+    <div class="row" style="margin-bottom:.7rem">${photo}<div>${title}<p class="muted">Goals, study time, your name, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
+    ${namePrompt}
     <p><b>Today:</b> ${esc(L.formatDuration(today))} of ${s.minutesPerDay} min goal</p>
     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Today's time toward your goal"><i style="width:${pct}%"></i></div>
     <p><b>Total learning time:</b> ${esc(L.formatDuration(total))}</p>
@@ -388,6 +404,7 @@ function profileView() {
     <p>${finishLine}</p>
     <div class="row" style="margin-top:1rem">
       <button class="alt" id="goals">Update goals</button>
+      <button class="ghost" id="pic">Change profile picture</button>
       <label class="btn" style="background:var(--sage);color:var(--ink)">Upload photo<input type="file" id="ph" accept="image/*" hidden></label>
       ${profile.photo ? '<button class="ghost" id="rm">Remove photo</button>' : ''}
     </div>
@@ -395,12 +412,46 @@ function profileView() {
   </section>`;
   wireTabs();
   $('#goals').onclick = () => surveyView(true);
+  $('#pic').onclick = buddyPickerView;
+  if ($('#savename')) $('#savename').onclick = () => {
+    const name = L.normalizeName($('#nmadd').value);
+    if (!name) { $('#nmsg').textContent = 'Please enter your name.'; $('#nmadd').focus(); return; }
+    profile.name = name; saveProfile(); profileView();
+  };
   $('#ph').onchange = async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     try { profile.photo = await resizePhoto(f); saveProfile(); profileView(); }
     catch (err) { $('#pmsg').textContent = err.message || 'Could not use that image.'; }
   };
   if ($('#rm')) $('#rm').onclick = () => { profile.photo = null; saveProfile(); profileView(); };
+}
+function buddyPickerView() {
+  stopTrack(); onHome = false;
+  if (!profile.survey) return surveyView(false);
+  const cur = L.normalizeBuddy(profile.buddy);
+  const cells = L.BUDDIES.map(b => {
+    const on = b.id === cur;
+    return `<button type="button" class="buddy-pick${on ? ' selected' : ''}" data-id="${b.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(b.name)}">
+      <img src="${b.file}?v=${VERSION}" alt="" width="96" height="96">
+      <span>${esc(b.name)}</span>
+    </button>`;
+  }).join('');
+  app.innerHTML = tabs('profile') + `<section class="card">
+    <h2>Change profile picture</h2>
+    <p class="muted">Choose a study buddy. It becomes your profile picture and appears on the home screen and during practice. You can still upload your own photo from Profile.</p>
+    <div class="buddy-grid">${cells}</div>
+    <div class="row" style="margin-top:1rem"><button class="ghost" id="h">Back</button></div>
+  </section>`;
+  wireTabs();
+  $('#h').onclick = profileView;
+  app.querySelectorAll('.buddy-pick').forEach(btn => {
+    btn.onclick = () => {
+      profile.buddy = L.normalizeBuddy(btn.getAttribute('data-id'));
+      profile.photo = null;
+      saveProfile();
+      profileView();
+    };
+  });
 }
 
 function startPractice(words, id = 'practice') {
@@ -737,7 +788,7 @@ function done(title, total, m, stage, result) {
 
 function backup() {
   stopTrack();
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, your goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, your name, study buddy, goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
   $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));

@@ -385,6 +385,28 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   const slim = JSON.parse(L.exportData({}, L.newGate(), {}, huge));
   assert.strictEqual(slim.profile.photo, null); // oversized photo omitted from backup
   assert.strictEqual(L.importData(JSON.stringify({ app: 'sat-vocab-practice', v: 2, progress: P, gate: L.newGate() })).profile, null);
+  assert.strictEqual(L.BUDDIES.length, 10);
+  assert.deepStrictEqual(L.BUDDIES.map(b => b.name), ['Penguin', 'Bunny', 'Frog', 'Chick', 'Hamster', 'Seal', 'Cloud', 'Otter', 'Bear', 'Dino']);
+  assert.strictEqual(L.DEFAULT_BUDDY, 'frog');
+  assert.strictEqual(L.normalizeBuddy(), 'frog');
+  assert.strictEqual(L.normalizeBuddy('dino'), 'dino');
+  assert.strictEqual(L.normalizeBuddy('nope'), 'frog');
+  assert.strictEqual(L.newProfile().buddy, 'frog');
+  assert.strictEqual(L.newProfile().name, null);
+  assert.strictEqual(L.normalizeName('  Lily  '), 'Lily');
+  assert.strictEqual(L.normalizeName(''), null);
+  assert.strictEqual(L.normalizeName('   '), null);
+  assert.strictEqual(L.normalizeName('a'.repeat(L.NAME_MAX + 8)).length, L.NAME_MAX);
+  pr.buddy = 'seal'; pr.name = '  Lily  ';
+  const exp2 = JSON.parse(L.exportData({}, L.newGate(), {}, pr));
+  assert.strictEqual(exp2.profile.buddy, 'seal');
+  assert.strictEqual(exp2.profile.name, 'Lily');
+  const got2 = L.importData(JSON.stringify(exp2));
+  assert.strictEqual(got2.profile.buddy, 'seal');
+  assert.strictEqual(got2.profile.name, 'Lily');
+  const oldProf = L.sanitizeProfile({ survey: pr.survey, time: pr.time, photo: null });
+  assert.strictEqual(oldProf.buddy, 'frog'); // older profiles default to the frog
+  assert.strictEqual(oldProf.name, null);
 }
 
 
