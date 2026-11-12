@@ -343,6 +343,41 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   const opts39 = L.choices(U[38][0], L.unitWords(U[38][0], U), 4, () => 0.2);
   assert(opts39.every(o => U[38].includes(o)));
   assert.strictEqual(typeof L.withWeak, 'function'); assert.strictEqual(typeof L.weakWords, 'function'); // kept for backups
+  assert.strictEqual(L.normalizePracticeMode('cloze'), 'cloze');
+  assert.strictEqual(L.normalizePracticeMode('nope'), 'mc');
+  const keys = ['abate', 'adapt', 'admire', 'adhere', 'advice'];
+  const short = L.newPracticeSession(keys, 3, () => 0.4);
+  assert.strictEqual(short.total, 5); // never below the word count
+  assert.strictEqual(short.queue.length, 5);
+  const long = L.newPracticeSession(keys, 12, () => 0.2);
+  assert.strictEqual(long.total, 12);
+  const freq = {};
+  long.queue.forEach(q => { freq[q.k] = (freq[q.k] || 0) + 1; });
+  assert.deepStrictEqual(Object.keys(freq).sort(), keys.slice().sort());
+  const counts = Object.values(freq);
+  assert(Math.max(...counts) - Math.min(...counts) <= 1, 'words cycle evenly');
+  assert(counts.every(n => n === 2 || n === 3));
+  const words = keys.map(k => ({ w: k }));
+  assert(L.validPracticeResume(long, words));
+  assert(!L.validPracticeResume(long, words.slice(0, 3)));
+  // first-try misses are counted per question, even when a word repeats
+  const run = L.newPracticeSession(['abate', 'adapt'], 4, () => 0);
+  assert.strictEqual(run.queue.length, 4);
+  assert.strictEqual(L.answerPracticeSession(run, false), false); // first-try miss
+  const missedWord = run.missed[0];
+  assert.strictEqual(run.missed.length, 1);
+  // the same word can still appear later as a new first-try question
+  const later = run.queue.find(q => !q.retry && q.k === missedWord);
+  assert(later, 'a later first-try slot remains for the missed word or the list continues');
+  while (run.queue.length) L.answerPracticeSession(run, true);
+  assert.strictEqual(run.missed.length, 1); // later first-tries were correct, so still one miss
+  assert.strictEqual(run.queue.length, 0);
+  assert.strictEqual(run.total - run.missed.length, 3);
+  // older one-per-word practice sessions still validate
+  const oldS = L.newSession(keys);
+  assert(L.validPracticeResume(oldS, words));
+  assert(L.validResume(oldS, words));
+  assert.strictEqual(L.validResume(long, words), false); // longer practice is practice-only
 }
 
 

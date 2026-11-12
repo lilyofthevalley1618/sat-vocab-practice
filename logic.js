@@ -142,6 +142,31 @@ function validResume(s, words) {
   if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || s.total !== words.length) return false;
   const ks = new Set(words.map(key)); return s.queue.every(q => ks.has(q.k)) && s.seen.every(k => ks.has(k));
 }
+// Optional practice can ask more questions than words by cycling the chosen list evenly.
+const PRACTICE_MODES = { type: 'type', cloze: 'cloze', mc: 'mc' };
+const normalizePracticeMode = m => PRACTICE_MODES[m] ? m : 'mc';
+function newPracticeSession(keys, count, rnd = Math.random) {
+  const uniq = keys.slice();
+  const n = Math.max(uniq.length, Math.min(500, Math.round(Number(count) || uniq.length) || uniq.length));
+  const order = shuffle(uniq, rnd);
+  const queue = Array.from({ length: n }, (_, i) => ({ k: order[i % order.length], retry: false, n: i }));
+  return { keys: uniq, queue, total: n, done: 0, qi: 0, missed: [], seen: [], count: n };
+}
+function validPracticeResume(s, words) {
+  if (!s || !Array.isArray(s.queue) || !Array.isArray(s.seen) || !Array.isArray(s.keys) || !Array.isArray(s.missed)) return false;
+  if (s.keys.length !== words.length) return false;
+  const ks = new Set(words.map(key));
+  if (!s.keys.every(k => ks.has(k)) || !words.every(w => ks.has(key(w)) && s.keys.includes(key(w)))) return false;
+  if (!Number.isFinite(s.total) || s.total < words.length || s.total > 500) return false;
+  return s.queue.every(q => q && ks.has(q.k)) && s.missed.every(k => ks.has(k));
+}
+function answerPracticeSession(s, correct) {
+  const item = s.queue.shift(); s.qi++;
+  const id = item.n != null && !item.retry ? 'q' + item.n : (item.retry ? null : item.k);
+  if (id != null && !s.seen.includes(id)) { s.seen.push(id); if (!correct) s.missed.push(item.k); }
+  if (correct) s.done++; else s.queue.splice(Math.min(3, s.queue.length), 0, { k: item.k, retry: true, n: item.n });
+  return s.queue.length === 0;
+}
 // After JSON/localStorage, re-attach word object identity so option === word still works.
 function rehydrateQuestion(q, byKey) {
   if (!q || !q.w) return q;
@@ -662,5 +687,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

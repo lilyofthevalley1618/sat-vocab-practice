@@ -6,8 +6,22 @@ const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
 const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
 const UNIT_OF = Object.fromEntries(WORDS.map(w => [L.key(w), L.unitWords(w, UNITS)]));
 const PKEY = 'satVocabPracticeSel.v1';
-const loadPracticeSel = () => { try { const x = JSON.parse(localStorage.getItem(PKEY) || '[]'); return Array.isArray(x) ? x.filter(k => BYKEY[k] && !L.isNew(prog, BYKEY[k])) : []; } catch (e) { return []; } };
-const savePracticeSel = keys => { try { localStorage.setItem(PKEY, JSON.stringify(keys)); } catch (e) {} };
+function loadPracticePrefs() {
+  try {
+    const x = JSON.parse(localStorage.getItem(PKEY) || 'null');
+    let keys = [], mode = 'mc', count = null;
+    if (Array.isArray(x)) keys = x;
+    else if (x && typeof x === 'object') {
+      if (Array.isArray(x.keys)) keys = x.keys;
+      mode = L.normalizePracticeMode(x.mode);
+      const n = Number(x.count);
+      if (Number.isFinite(n) && n >= 1) count = Math.min(500, Math.round(n));
+    }
+    keys = keys.filter(k => BYKEY[k] && !L.isNew(prog, BYKEY[k]));
+    return { keys, mode, count };
+  } catch (e) { return { keys: [], mode: 'mc', count: null }; }
+}
+const savePracticePrefs = prefs => { try { localStorage.setItem(PKEY, JSON.stringify(prefs)); } catch (e) {} };
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
 if (L.migratePairUnlocks(PATH, gate)) saveGate();
@@ -454,80 +468,96 @@ function buddyPickerView() {
   });
 }
 
-function startPractice(words, id = 'practice') {
+function startPractice(words, id = 'practice', opts = {}) {
   const list = (words || []).filter(Boolean);
   if (!list.length) return id === 'missed' ? home() : practiceView();
+  const mode = L.normalizePracticeMode(opts.mode);
+  const count = Math.max(list.length, Math.min(500, Math.round(Number(opts.count) || list.length) || list.length));
   const title = id === 'missed' ? 'Missed words' : 'Practice words';
-  quiz(list, title, true, WORDS, { type: 'practice', id, words: list });
+  quiz(list, title, true, WORDS, { type: 'practice', id, words: list, mode, count });
 }
 function practiceView() {
   stopTrack(); onHome = false;
-  const groupsAll = UNITS.map((u, i) => ({ i, words: u.filter(w => !L.isNew(prog, w)) })).filter(g => g.words.length);
-  if (!groupsAll.length) return home();
+  const learned = WORDS.filter(w => !L.isNew(prog, w)).sort((a, b) => a.w.localeCompare(b.w, 'en', { sensitivity: 'base' }));
+  if (!learned.length) return home();
   const paused = gate.resume && gate.resume.practice;
   const pausedWords = paused && (paused.keys || []).map(k => BYKEY[k]).filter(Boolean);
-  const canResume = pausedWords && pausedWords.length && L.validResume(paused, pausedWords);
-  const selected = new Set(loadPracticeSel());
-  let q = '';
-  const learnedKeys = () => groupsAll.flatMap(g => g.words).map(L.key);
-  const selCount = () => learnedKeys().filter(k => selected.has(k)).length;
-  const paintChrome = (groups) => {
+  const canResume = pausedWords && pausedWords.length && L.validPracticeResume(paused, pausedWords);
+  const prefs = loadPracticePrefs();
+  const selected = new Set(prefs.keys);
+  let q = '', mode = prefs.mode, countPref = prefs.count;
+  const persist = () => savePracticePrefs({ keys: [...selected], mode, count: countPref });
+  const selCount = () => learned.filter(w => selected.has(L.key(w))).length;
+  const paintChrome = () => {
     const n = selCount();
-    const go = $('#go');
-    if (go) { go.disabled = !n; go.textContent = n ? `Practice ${n} word${n === 1 ? '' : 's'}` : 'Practice words'; }
-    (groups || []).forEach(g => {
-      const box = document.querySelector('input[data-u="' + g.i + '"]');
-      if (!box) return;
-      const allOn = g.words.every(w => selected.has(L.key(w)));
-      const some = g.words.some(w => selected.has(L.key(w)));
-      box.checked = allOn; box.indeterminate = some && !allOn;
-    });
+    const go = $('#go'), qn = $('#qcount'), hint = $('#qhint');
+    if (go) { go.disabled = !n; go.textContent = n ? `Start practice (${n} word${n === 1 ? '' : 's'})` : 'Choose words to start'; }
+    if (qn) {
+      qn.min = Math.max(1, n);
+      const cur = Math.round(Number(qn.value) || 0);
+      if (!n) { qn.value = 1; qn.disabled = true; }
+      else {
+        qn.disabled = false;
+        if (cur < n) qn.value = n;
+      }
+    }
+    if (hint) hint.textContent = n ? `At least ${n}, one per chosen word. You can ask for more; words will cycle evenly.` : 'Select words first, then set the number of questions.';
   };
   const render = () => {
     const ql = q.trim().toLowerCase();
     const hit = w => !ql || w.w.toLowerCase().includes(ql) || w.d.toLowerCase().includes(ql) || w.p.toLowerCase().includes(ql);
-    const groups = groupsAll.map(g => ({ i: g.i, words: g.words.filter(hit) })).filter(g => g.words.length);
-    const visKeys = groups.flatMap(g => g.words).map(L.key);
+    const visible = learned.filter(hit);
+    const visKeys = visible.map(L.key);
     const n = selCount();
+    const qVal = n ? Math.max(n, countPref || n) : 1;
     const resume = canResume ? `<p class="fb ok">You have a practice session paused at ${paused.done}/${paused.total}. <button class="alt" id="pr">Resume</button></p>` : '';
-    app.innerHTML = `<section class="card"><h2>Practice words</h2>
-      <p class="muted">Choose any words you have already started. This practice is optional and does not affect unlocks. Questions go both ways (word to meaning and meaning to word), and wrong answers come from the same unit.</p>${resume}
+    const modeBtns = [['type', 'Free-response typing'], ['cloze', 'Fill-in-the-blank'], ['mc', 'Multiple choice']].map(([id, label]) =>
+      `<label class="mode-opt"><input type="radio" name="pm" value="${id}" ${mode === id ? 'checked' : ''}> ${label}</label>`).join('');
+    app.innerHTML = `<section class="card"><h2>Choose your practice words</h2>
+      <p class="muted">Every word you have already started is listed here, in alphabetical order. The list grows as you finish more units. This practice is optional and does not affect unlocks.</p>${resume}
       <div class="row"><input type="search" id="ps" placeholder="Search words" value="${esc(q)}" aria-label="Search words" style="max-width:16rem">
         <button type="button" class="ghost" id="all">Select all</button>
         <button type="button" class="ghost" id="none">Select none</button>
-        <button type="button" id="go" ${n ? '' : 'disabled'}>${n ? `Practice ${n} word${n === 1 ? '' : 's'}` : 'Practice words'}</button>
         <button type="button" class="ghost" id="h">Back</button></div>
-      <div class="picker" id="plist">${groups.map(g => `<div class="pick-unit">
-        <h3><label><input type="checkbox" data-u="${g.i}"> Unit ${g.i + 1}</label></h3>
-        ${g.words.map(w => `<label class="pick-w"><input type="checkbox" value="${esc(L.key(w))}" ${selected.has(L.key(w)) ? 'checked' : ''}><span><b>${esc(w.w)}</b> <span class="pos">(${esc(w.p)})</span> — ${esc(w.d)}</span></label>`).join('')}
-      </div>`).join('') || '<p class="muted">No words match that search.</p>'}</div></section>`;
-    paintChrome(groups);
+      <div class="pick-cols" id="plist">${visible.map(w => `<label class="pick-w"><input type="checkbox" value="${esc(L.key(w))}" ${selected.has(L.key(w)) ? 'checked' : ''}><span><b>${esc(w.w)}</b> <span class="pos">(${esc(w.p)})</span></span></label>`).join('') || '<p class="muted">No words match that search.</p>'}</div>
+      <fieldset class="prac-opts"><legend>Question type</legend><div class="row">${modeBtns}</div></fieldset>
+      <label for="qcount">Number of questions</label>
+      <div class="row"><input type="number" id="qcount" min="${Math.max(1, n) || 1}" step="1" value="${qVal}" ${n ? '' : 'disabled'} aria-describedby="qhint"><button type="button" id="go" ${n ? '' : 'disabled'}>${n ? `Start practice (${n} word${n === 1 ? '' : 's'})` : 'Choose words to start'}</button></div>
+      <p class="muted" id="qhint"></p>
+    </section>`;
+    paintChrome();
     $('#h').onclick = home;
-    if ($('#pr')) $('#pr').onclick = () => startPractice(pausedWords, 'practice');
+    if ($('#pr')) $('#pr').onclick = () => startPractice(pausedWords, 'practice', { mode: paused.mode, count: paused.count || paused.total });
     const box = $('#ps');
     box.focus();
     const pos = box.value.length; box.setSelectionRange(pos, pos);
     box.oninput = () => { q = box.value; render(); };
-    $('#all').onclick = () => { visKeys.forEach(k => selected.add(k)); savePracticeSel([...selected]); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = true; }); paintChrome(groups); };
-    $('#none').onclick = () => { visKeys.forEach(k => selected.delete(k)); savePracticeSel([...selected]); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = false; }); paintChrome(groups); };
+    $('#all').onclick = () => { visKeys.forEach(k => selected.add(k)); persist(); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = true; }); paintChrome(); };
+    $('#none').onclick = () => { visKeys.forEach(k => selected.delete(k)); persist(); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = false; }); paintChrome(); };
+    app.querySelectorAll('input[name=pm]').forEach(inp => inp.onchange = () => { if (inp.checked) { mode = L.normalizePracticeMode(inp.value); persist(); } });
+    $('#qcount').onchange = $('#qcount').oninput = () => {
+      const nNow = selCount();
+      let v = Math.round(Number($('#qcount').value) || 0);
+      if (nNow && v < nNow) { v = nNow; $('#qcount').value = v; }
+      if (v > 500) { v = 500; $('#qcount').value = v; }
+      countPref = v || null; persist();
+    };
     $('#go').onclick = () => {
-      const words = WORDS.filter(w => selected.has(L.key(w)) && !L.isNew(prog, w));
+      const words = learned.filter(w => selected.has(L.key(w)));
       if (!words.length) return;
-      savePracticeSel(words.map(L.key));
-      startPractice(words);
+      const nNow = words.length;
+      let want = Math.round(Number($('#qcount').value) || nNow);
+      if (!Number.isFinite(want) || want < nNow) want = nNow;
+      if (want > 500) want = 500;
+      mode = L.normalizePracticeMode((document.querySelector('input[name=pm]:checked') || {}).value);
+      countPref = want;
+      persist();
+      startPractice(words, 'practice', { mode, count: want });
     };
     app.querySelectorAll('.pick-w input').forEach(inp => inp.onchange = () => {
       if (inp.checked) selected.add(inp.value); else selected.delete(inp.value);
-      savePracticeSel([...selected]);
-      paintChrome(groups);
-    });
-    app.querySelectorAll('input[data-u]').forEach(inp => inp.onchange = () => {
-      const g = groups.find(x => String(x.i) === inp.dataset.u);
-      const want = new Set((g ? g.words : []).map(L.key));
-      (g ? g.words : []).forEach(w => { if (inp.checked) selected.add(L.key(w)); else selected.delete(L.key(w)); });
-      app.querySelectorAll('.pick-w input').forEach(el => { if (want.has(el.value)) el.checked = inp.checked; });
-      savePracticeSel([...selected]);
-      paintChrome(groups);
+      persist();
+      paintChrome();
     });
   };
   render();
@@ -541,11 +571,12 @@ function home() {
   const missPaused = missRes && Array.isArray(missRes.queue) && missRes.queue.length;
   app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<p class="muted">${esc(buddyLine())}</p></div><div class="stats">
    <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
-   <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>${pracPaused ? `Resume practice (${pracRes.done}/${pracRes.total})` : 'Practice words'}</button>
-   ${missPaused ? `<button class="alt" id="miss">Resume missed words (${missRes.done}/${missRes.total})</button>` : ''}
+   <div class="row" style="margin-top:1rem">${missPaused ? `<button class="alt" id="miss">Resume missed words (${missRes.done}/${missRes.total})</button>` : ''}
    <button class="ghost" id="data">Backup / restore</button></div>
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
-   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice words is optional and does not affect unlocks.</p>
+   <div class="prac-top"><button id="prac" ${learned ? '' : 'disabled'}>Choose your practice words</button>
+   ${pracPaused ? `<button class="alt" id="pr">Resume practice (${pracRes.done}/${pracRes.total})</button>` : ''}</div>
+   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice is optional and does not affect unlocks.</p>
    <div class="units">${PATH.map((it, idx) => {
      const u = it.words, open = !block && L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
@@ -559,6 +590,7 @@ function home() {
   wireTabs();
   if ($('#upd')) $('#upd').onclick = () => location.reload();
   $('#prac').onclick = practiceView;
+  if ($('#pr')) $('#pr').onclick = () => startPractice((pracRes.keys || []).map(k => BYKEY[k]).filter(Boolean), 'practice', { mode: pracRes.mode, count: pracRes.count || pracRes.total });
   if ($('#miss')) $('#miss').onclick = () => startPractice((missRes.keys || []).map(k => BYKEY[k]).filter(Boolean), 'missed');
   $('#data').onclick = backup;
   const guard = f => b => b.onclick = () => { const idx = +Object.values(b.dataset)[0]; if (!L.dailyBlocks(gate) && L.isUnlocked(PATH, idx, gate)) f(PATH[idx], idx); };
@@ -628,9 +660,22 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     if (snap) { s = L.rehydrateSession(gate.resume[stage.id], BYKEY); words = snap; }
     else { s = take(gate.resume[stage.id], words); if (s) s.keys = words.map(L.key); }
     pool = words;
+  } else if (stage && stage.type === 'practice') {
+    const raw = gate.resume[stage.id];
+    s = (raw && L.validPracticeResume(raw, words)) ? L.rehydrateSession(raw, BYKEY) : null;
+    if (s) {
+      if (s.mode) stage.mode = L.normalizePracticeMode(s.mode);
+      if (s.count) stage.count = s.count;
+    }
   } else if (keep) s = take(gate.resume[stage.id], words);
   if (!words.length) return home();
-  if (!s) s = L.newSession(words.map(L.key));
+  if (!s) {
+    if (stage && stage.type === 'practice') {
+      s = L.newPracticeSession(words.map(L.key), stage.count);
+      s.mode = L.normalizePracticeMode(stage.mode);
+      stage.count = s.total;
+    } else s = L.newSession(words.map(L.key));
+  }
   if (stage && stage.type === 'recall' && s.recallOff == null) s.recallOff = Math.random() < 0.5 ? 0 : 1;
   const rtypes = intro ? null : L.quizTypes(1000, false);
   const persist = () => {
@@ -646,7 +691,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     if (stage && stage.type === 'daily') return startDaily();
     if (stage && stage.type === 'daily2') return startDailyPart2();
     if (stage && stage.type === 'recall') return startRecall();
-    if (stage && stage.type === 'practice') return startPractice(stage.words, stage.id);
+    if (stage && stage.type === 'practice') return startPractice(stage.words, stage.id, { mode: stage.mode, count: stage.count });
     if (stage) return quiz(stage.words, title, intro, stage.pool || stage.words, stage);
     quiz(words, title, intro, pool, stage);
   };
@@ -681,7 +726,14 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
       else q = s.curQ.q;
     } else if (stage && stage.type === 'practice') {
       if (!s.curQ || s.curQ.k !== k) {
-        q = { w: BYKEY[k], type: ['word2def', 'def2word'][s.qi % 2], options: L.choices(BYKEY[k], UNIT_OF[k] || WORDS) };
+        const mode = L.normalizePracticeMode(stage.mode || s.mode);
+        const poolFor = UNIT_OF[k] || WORDS;
+        if (mode === 'type') q = { w: BYKEY[k], type: 'type' };
+        else if (mode === 'cloze') {
+          const items = (typeof CLOZE !== 'undefined' ? CLOZE[k] : null) || [];
+          q = L.buildClozeQuestion(BYKEY[k], poolFor, items, (gate.clozeLast || {})[k]);
+          gate.clozeLast = gate.clozeLast || {}; gate.clozeLast[k] = q.i;
+        } else q = { w: BYKEY[k], type: ['word2def', 'def2word'][s.qi % 2], options: L.choices(BYKEY[k], poolFor) };
         s.curQ = { k, q };
       } else q = s.curQ.q;
     } else {
@@ -721,8 +773,15 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     const answer = (ok, chosen, typed) => {
       if (answered) return; answered = true; if (ok) ding();
       if ($('#buddy')) $('#buddy').innerHTML = buddySvg(ok ? 'happy' : 'sad', 40);
-      if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
-      L.answerSession(s, ok); s.curQ = null; persist();
+      if (stage && stage.type === 'practice') {
+        s.graded = s.graded || [];
+        if (!s.graded.includes(k)) { s.graded.push(k); L.grade(prog, w, ok); save(); }
+        L.answerPracticeSession(s, ok);
+      } else {
+        if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
+        L.answerSession(s, ok);
+      }
+      s.curQ = null; persist();
       const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');
       const official = type === 'typeDef' ? (ok ? `Correct. The official definition of <b>${esc(w.w)}</b> is: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`) : (ok ? `Correct. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, typed, WORDS))} <br><span class="muted">This one will come back shortly.</span>`);
       $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${official}${filled}
@@ -780,10 +839,10 @@ function done(title, total, m, stage, result) {
   const canRetake = stage && !(isDaily && result && result.perfect);
   const backDaily = isDaily || isRecall;
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
-   ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
+   ${m.length ? `<p>Words to look at again:</p><ul>${[...new Map(m.filter(Boolean).map(w => [L.key(w), w]))].map(([, w]) => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
    <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${backDaily ? 'Back to Daily Review' : 'Back to path'}</button>${backDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
   $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => startPractice(m, 'missed');
-  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words, stage.id) : startStage(stage, idx);
+  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words, stage.id, { mode: stage.mode, count: stage.count }) : startStage(stage, idx);
 }
 
 function backup() {
