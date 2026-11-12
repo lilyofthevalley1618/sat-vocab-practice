@@ -333,6 +333,18 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   assert(imported.gate.passed.pr0);
 }
 
+// Optional Practice words: distractors come from the same unit; helpers stay available for old backups
+{ const w = U[0][0];
+  assert.deepStrictEqual(L.unitWords(w, U), U[0]);
+  assert.deepStrictEqual(L.unitWords(U[38][0], U), U[38]);
+  const opts = L.choices(w, L.unitWords(w, U), 4, () => 0.4);
+  assert(opts.includes(w));
+  assert(opts.every(o => U[0].includes(o)), 'practice distractors stay in unit');
+  const opts39 = L.choices(U[38][0], L.unitWords(U[38][0], U), 4, () => 0.2);
+  assert(opts39.every(o => U[38].includes(o)));
+  assert.strictEqual(typeof L.withWeak, 'function'); assert.strictEqual(typeof L.weakWords, 'function'); // kept for backups
+}
+
 // No future review dates/countdowns shown anywhere in the UI
 { const APP = require('fs').readFileSync(__dirname + '/app.js', 'utf8');
   assert(!/days`|next review|Next review|fmt\(/.test(APP)); assert(/In your Daily Review/.test(APP)); }

@@ -4,6 +4,10 @@ let prog = JSON.parse(localStorage.getItem(SKEY) || '{}');
 const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
 // Unlock/test state lives under its own key so word progress is never touched.
 const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
+const UNIT_OF = Object.fromEntries(WORDS.map(w => [L.key(w), L.unitWords(w, UNITS)]));
+const PKEY = 'satVocabPracticeSel.v1';
+const loadPracticeSel = () => { try { const x = JSON.parse(localStorage.getItem(PKEY) || '[]'); return Array.isArray(x) ? x.filter(k => BYKEY[k] && !L.isNew(prog, BYKEY[k])) : []; } catch (e) { return []; } };
+const savePracticeSel = keys => { try { localStorage.setItem(PKEY, JSON.stringify(keys)); } catch (e) {} };
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
 if (L.migratePairUnlocks(PATH, gate)) saveGate();
@@ -38,7 +42,7 @@ const startDaily = () => {
 const startDailyPart2 = () => {
   dayCheck();
   if (!gate.daily || gate.daily.passed || !gate.daily.part1 || (gate.daily.day !== L.laDay())) return dailyView();
-  const baseKeys = gate.daily.part1Keys || L.withWeak(dailyStage().words, prog, WORDS).map(L.key);
+  const baseKeys = gate.daily.part1Keys || dailyStage().words.map(L.key);
   const st = { type: 'daily2', id: 'daily2', day: gate.daily.day, words: baseKeys.map(k => BYKEY[k]).filter(Boolean) };
   quiz(st.words, 'Daily Review, Part 2', false, st.words, st);
 };
@@ -72,7 +76,7 @@ function grammarView() {
     const res = gram.resume && gram.resume[it.id];
     const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : (dailyDue && L.isUnlocked(GPATH, idx, gram) ? "🔒 Finish today's grammar review first" : '🔒 Locked');
     const btn = !open ? '<button disabled>Locked</button>' : res && L.validGramResume(res, res.total) ? `<button data-s="${idx}">Resume (${res.done}/${res.total})</button>` : `<button data-s="${idx}">${it.type === 'rule' ? (pass ? 'Practice' : 'Learn') : (pass ? 'Retake' : 'Start')}</button>`;
-    return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${idx + 1}. ${esc(gLabel(it))}</h3><small>${esc(gSub(it))}</small><small>${status}</small><div class="row" style="margin-top:.5rem">${btn}</div></div>`;
+    return `<div class="unit ${it.type}${open ? '' : ' locked'}${pass ? ' passed' : ''}"><h3>${idx + 1}. ${esc(gLabel(it))}</h3><small>${esc(gSub(it))}</small><small>${status}</small><div class="row" style="margin-top:.5rem">${btn}</div></div>`;
   };
   const p1 = [], p2 = [];
   GPATH.forEach((it, idx) => (idx <= 9 ? p1 : p2).push(card(it, idx)));
@@ -188,16 +192,15 @@ function showGramQ(it, s) {
 }
 function dailyView() {
   onHome = true; dayCheck(); const dly = gate.daily;
-  const nToday = L.withWeak(dailyStage().words, prog, WORDS).length;
-  const extra = nToday - dly.words.length;
+  const nToday = dly.words.length;
   const half = nToday ? L.halfCount(nToday) : 0;
   const paused1 = gate.resume.daily, paused2 = gate.resume.daily2;
   let intro, parts = '';
-  if (!dly.words.length && dly.passed && !nToday) intro = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
+  if (!dly.words.length && dly.passed) intro = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
   else {
     intro = dly.passed
       ? '<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>'
-      : `<p>${nToday} words: ${dly.words.length} learned before today${extra ? ` plus ${extra} weak word${extra > 1 ? 's' : ''} from today` : ''}. You need 100% on the first try in <b>both</b> parts to finish today\'s Daily Review.</p>`;
+      : `<p>${nToday} word${nToday === 1 ? '' : 's'} learned before today. You need 100% on the first try in <b>both</b> parts to finish today\'s Daily Review.</p>`;
     const p1done = !!(dly.part1 || dly.passed);
     const p1status = p1done ? '✓ Done' : paused1 ? `Paused at ${paused1.done}/${paused1.total}` : 'Open';
     const p1btn = p1done ? '' : `<button class="alt" id="daily1">${paused1 ? 'Resume Part 1' : 'Start Part 1'}</button>`;
@@ -217,7 +220,7 @@ function dailyView() {
   const recallStatus = !recallOn ? '🔒 Unlocks at Unit 9' : pausedR ? `Paused at ${pausedR.done}/${pausedR.total}` : bestR != null ? `Best first-try score: ${bestR}%` : `About ${nR} questions, mixed typing`;
   const recallBtn = recallOn ? `<button class="alt" id="recall">${pausedR ? 'Resume recall' : 'Start recall'}</button>` : '<button disabled>Unlocks at Unit 9</button>';
   const meaning = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:.7rem">
-    <div class="unit${recallOn ? '' : ' locked'}"><h3>Meaning</h3><small>Optional but recommended. Recent Words Recall: type the word from its definition, or type the definition from the word, focused on your last 2–3 units (about 70% recent, 30% older, weak words first). This does not gate your path or Daily Review.</small><small>${recallStatus}</small>
+    <div class="unit${recallOn ? '' : ' locked'}"><h3>Meaning</h3><small>Optional but recommended. Recent Words Recall: type the word from its definition, or type the definition from the word, focused on your last 2–3 units (about 70% recent, 30% older). This does not gate your path or Daily Review.</small><small>${recallStatus}</small>
       <div class="row" style="margin-top:.5rem">${recallBtn}</div></div>
   </div>`;
   L.ensureDailyGrammar(gram, GPATH);
@@ -244,29 +247,101 @@ function dailyView() {
   app.innerHTML = tabs('daily') + `<section class="card daily"><h2>Daily Review — ${dly.day}</h2>${intro}</section>${parts}${meaning}${grammar}`;
   wireTabs(); if ($('#daily1')) $('#daily1').onclick = startDaily; if ($('#daily2')) $('#daily2').onclick = startDailyPart2; if ($('#recall')) $('#recall').onclick = startRecall; if ($('#gDaily')) $('#gDaily').onclick = startDailyGrammar;
 }
+
+function startPractice(words) {
+  const list = (words || []).filter(Boolean);
+  if (!list.length) return practiceView();
+  quiz(list, 'Practice words', true, WORDS, { type: 'practice', words: list });
+}
+function practiceView() {
+  onHome = false;
+  const groupsAll = UNITS.map((u, i) => ({ i, words: u.filter(w => !L.isNew(prog, w)) })).filter(g => g.words.length);
+  if (!groupsAll.length) return home();
+  const selected = new Set(loadPracticeSel());
+  let q = '';
+  const learnedKeys = () => groupsAll.flatMap(g => g.words).map(L.key);
+  const selCount = () => learnedKeys().filter(k => selected.has(k)).length;
+  const paintChrome = (groups) => {
+    const n = selCount();
+    const go = $('#go');
+    if (go) { go.disabled = !n; go.textContent = n ? `Practice ${n} word${n === 1 ? '' : 's'}` : 'Practice words'; }
+    (groups || []).forEach(g => {
+      const box = document.querySelector('input[data-u="' + g.i + '"]');
+      if (!box) return;
+      const allOn = g.words.every(w => selected.has(L.key(w)));
+      const some = g.words.some(w => selected.has(L.key(w)));
+      box.checked = allOn; box.indeterminate = some && !allOn;
+    });
+  };
+  const render = () => {
+    const ql = q.trim().toLowerCase();
+    const hit = w => !ql || w.w.toLowerCase().includes(ql) || w.d.toLowerCase().includes(ql) || w.p.toLowerCase().includes(ql);
+    const groups = groupsAll.map(g => ({ i: g.i, words: g.words.filter(hit) })).filter(g => g.words.length);
+    const visKeys = groups.flatMap(g => g.words).map(L.key);
+    const n = selCount();
+    app.innerHTML = `<section class="card"><h2>Practice words</h2>
+      <p class="muted">Choose any words you have already started. This practice is optional and does not affect unlocks. Questions go both ways (word to meaning and meaning to word), and wrong answers come from the same unit.</p>
+      <div class="row"><input type="search" id="ps" placeholder="Search words" value="${esc(q)}" aria-label="Search words" style="max-width:16rem">
+        <button type="button" class="ghost" id="all">Select all</button>
+        <button type="button" class="ghost" id="none">Select none</button>
+        <button type="button" id="go" ${n ? '' : 'disabled'}>${n ? `Practice ${n} word${n === 1 ? '' : 's'}` : 'Practice words'}</button>
+        <button type="button" class="ghost" id="h">Back</button></div>
+      <div class="picker" id="plist">${groups.map(g => `<div class="pick-unit">
+        <h3><label><input type="checkbox" data-u="${g.i}"> Unit ${g.i + 1}</label></h3>
+        ${g.words.map(w => `<label class="pick-w"><input type="checkbox" value="${esc(L.key(w))}" ${selected.has(L.key(w)) ? 'checked' : ''}><span><b>${esc(w.w)}</b> <span class="pos">(${esc(w.p)})</span> — ${esc(w.d)}</span></label>`).join('')}
+      </div>`).join('') || '<p class="muted">No words match that search.</p>'}</div></section>`;
+    paintChrome(groups);
+    $('#h').onclick = home;
+    const box = $('#ps');
+    box.focus();
+    const pos = box.value.length; box.setSelectionRange(pos, pos);
+    box.oninput = () => { q = box.value; render(); };
+    $('#all').onclick = () => { visKeys.forEach(k => selected.add(k)); savePracticeSel([...selected]); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = true; }); paintChrome(groups); };
+    $('#none').onclick = () => { visKeys.forEach(k => selected.delete(k)); savePracticeSel([...selected]); app.querySelectorAll('.pick-w input').forEach(el => { el.checked = false; }); paintChrome(groups); };
+    $('#go').onclick = () => {
+      const words = WORDS.filter(w => selected.has(L.key(w)) && !L.isNew(prog, w));
+      if (!words.length) return;
+      savePracticeSel(words.map(L.key));
+      startPractice(words);
+    };
+    app.querySelectorAll('.pick-w input').forEach(inp => inp.onchange = () => {
+      if (inp.checked) selected.add(inp.value); else selected.delete(inp.value);
+      savePracticeSel([...selected]);
+      paintChrome(groups);
+    });
+    app.querySelectorAll('input[data-u]').forEach(inp => inp.onchange = () => {
+      const g = groups.find(x => String(x.i) === inp.dataset.u);
+      const want = new Set((g ? g.words : []).map(L.key));
+      (g ? g.words : []).forEach(w => { if (inp.checked) selected.add(L.key(w)); else selected.delete(L.key(w)); });
+      app.querySelectorAll('.pick-w input').forEach(el => { if (want.has(el.value)) el.checked = inp.checked; });
+      savePracticeSel([...selected]);
+      paintChrome(groups);
+    });
+  };
+  render();
+}
+
 function home() {
   onHome = true; dayCheck(); const dly = gate.daily, block = L.dailyBlocks(gate);
-  const due = L.dueWords(prog, WORDS), learned = WORDS.filter(w => !L.isNew(prog, w)).length, weak = L.weakWords(prog, WORDS);
+  const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
   app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="stats">
-   <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div>
-   <div class="stat"><b>${weak.length}</b>weak words</div><div class="stat"><b>${due.length}</b>words for extra practice</div></div>
-   <div class="row" style="margin-top:1rem"><button id="rev" ${due.length ? '' : 'disabled'}>Extra practice (${Math.min(due.length, 30)} words, optional)</button>
-   <button class="alt" id="weak" ${weak.length ? '' : 'disabled'}>Practice weak words</button><button class="ghost" id="data">Backup / restore</button></div>
+   <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
+   <div class="row" style="margin-top:1rem"><button id="prac" ${learned ? '' : 'disabled'}>Practice words</button>
+   <button class="ghost" id="data">Backup / restore</button></div>
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
-   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Due reviews and weak words are always open.</p>
+   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice words is optional and does not affect unlocks.</p>
    <div class="units">${PATH.map((it, idx) => {
      const u = it.words, open = !block && L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
      const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
      const btn = it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : res ? `Resume (${res.done}/${res.total})` : 'Start';
-     return `<div class="unit ${it.type}${open ? '' : ' locked'}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'review' ? `${u.length} words + ${L.withWeak(u, prog, WORDS).length - u.length} other weak words` : it.type === 'pair' ? `${u.length} words, fill-in sentences` : u.length + ' words'}</small>
+     return `<div class="unit ${it.type}${open ? '' : ' locked'}${pass ? ' passed' : ''}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'pair' ? `${u.length} words, fill-in sentences` : u.length + ' words'}</small>
      <div class="bar"><i style="width:${st / u.length * 100}%"></i></div><small>${status}</small>
      <div class="row" style="margin-top:.5rem"><button data-s="${idx}" ${open ? '' : 'disabled'}>${btn}</button>${it.type === 'unit' ? `<button class="ghost" data-f="${idx}" ${open ? '' : 'disabled'}>Cards</button><button class="ghost" data-w="${idx}" ${open ? '' : 'disabled'}>List</button>` : ''}</div></div>`;
    }).join('')}</div>`;
   wireTabs();
   if ($('#upd')) $('#upd').onclick = () => location.reload();
-  $('#rev').onclick = () => quiz(due.slice(0, 30), 'Extra practice');
-  $('#weak').onclick = () => quiz(weak, 'Weak words');
+  $('#prac').onclick = practiceView;
   $('#data').onclick = backup;
   const guard = f => b => b.onclick = () => { const idx = +Object.values(b.dataset)[0]; if (!L.dailyBlocks(gate) && L.isUnlocked(PATH, idx, gate)) f(PATH[idx], idx); };
   app.querySelectorAll('[data-s]').forEach(guard(startStage));
@@ -312,7 +387,7 @@ function flash(words, title, then, graded = true) {
 // stage: a path step (unit/review/test). Big and final tests save progress so they can be resumed.
 function quiz(words, title, intro = false, pool = WORDS, stage = null) {
   onHome = false;
-  const keep = stage && stage.type !== 'unit';
+  const keep = stage && stage.type !== 'unit' && stage.type !== 'practice';
   let s = null, clozeMap = {};
   if (stage && stage.type === 'daily2') {
     const halfN = L.halfCount(words.length);
@@ -327,11 +402,10 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; clozeMap = s.cloze || {}; }
     pool = stage.pool || stage.words;
   } else if (stage && (stage.type === 'review' || stage.type === 'daily')) {
-    // Snapshot base range + all weak words at session start; resume keeps that snapshot.
+    // Resume an in-progress snapshot if it still covers this review's words; new runs use the review's own list.
     const snap = L.resumeSnapshot(gate.resume[stage.id], words, BYKEY);
     if (snap) { s = gate.resume[stage.id]; words = snap; }
     else if (L.validResume(gate.resume[stage.id], words)) { s = gate.resume[stage.id]; s.keys = words.map(L.key); } // older paused run
-    else words = L.withWeak(words, prog, WORDS);
     pool = words;
   } else if (keep && L.validResume(gate.resume[stage.id], words)) s = gate.resume[stage.id];
   if (!words.length) return home();
@@ -371,6 +445,11 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     } else if (stage && stage.type === 'recall') {
       if (!s.curQ || s.curQ.k !== k) { q = L.buildRecallQuestion(BYKEY[k], s.qi, s); s.curQ = { k, q }; }
       else q = s.curQ.q;
+    } else if (stage && stage.type === 'practice') {
+      if (!s.curQ || s.curQ.k !== k) {
+        q = { w: BYKEY[k], type: ['word2def', 'def2word'][s.qi % 2], options: L.choices(BYKEY[k], UNIT_OF[k] || WORDS) };
+        s.curQ = { k, q };
+      } else q = s.curQ.q;
     } else {
       if (!s.curQ || s.curQ.k !== k) {
         q = stage && stage.type !== 'daily2' ? L.buildQuestion(stage, k, s.qi, BYKEY) : { w: BYKEY[k], type: intro ? ['word2def', 'def2word'][s.qi % 2] : rtypes[s.qi % 1000], options: L.choices(BYKEY[k], pool) };
@@ -448,6 +527,7 @@ function done(title, total, m, stage, result) {
   const idx = stage ? PATH.indexOf(stage) : -1, nxt = PATH[idx + 1];
   const isDaily = stage && (stage.type === 'daily' || stage.type === 'daily2');
   const isRecall = stage && stage.type === 'recall';
+  const isPractice = stage && stage.type === 'practice';
   const dailyMsg = result && isRecall ? (
     result.perfect ? '<p class="fb ok">Nice work — 100% on the first try. Recent Words Recall is optional and does not affect your path or Daily Review.</p>'
     : `<p class="fb no">${result.pct}% on the first try. This practice is optional; retake it whenever you like. It does not gate your path.</p>`)
@@ -457,15 +537,15 @@ function done(title, total, m, stage, result) {
     : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
     : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 100% on the first try in both parts. Your path is open again.</p>'
     : `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 100% on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`) : '';
-  const verdict = dailyMsg || (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
-    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`);
+  const verdict = dailyMsg || (isPractice ? '<p class="fb ok">This practice is optional and does not affect your path or unlocks.</p>' : (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
+    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`));
   const canRetake = stage && !(isDaily && result && result.perfect);
   const backDaily = isDaily || isRecall;
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
    ${m.length ? `<p>Words to look at again:</p><ul>${m.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : ''}
    <div class="row">${canRetake ? '<button class="alt" id="again">Retake</button>' : ''}${m.length ? '<button class="ghost" id="r">Practice missed words</button>' : ''}<button id="h">${backDaily ? 'Back to Daily Review' : 'Back to path'}</button>${backDaily ? '<button class="ghost" id="hp">Back to path</button>' : ''}</div></section>`;
-  $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => quiz(m, 'Missed words');
-  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : startStage(stage, idx);
+  $('#h').onclick = backDaily ? dailyView : home; if ($('#hp')) $('#hp').onclick = home; if ($('#r')) $('#r').onclick = () => isPractice ? startPractice(m) : quiz(m, 'Missed words');
+  if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words) : startStage(stage, idx);
 }
 
 function backup() {
