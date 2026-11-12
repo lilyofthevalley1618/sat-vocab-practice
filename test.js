@@ -469,8 +469,18 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   const G = L.newGate(); L.ensureDaily(G, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 10, 20));
   assert(L.dailyBlocks(G));
   assert(L.recordDaily(G, G.daily.day, 1, 0, 1).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
-  assert(!L.recordDaily(G, G.daily.day, 5, 1, 2).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
+  assert(!L.recordDaily(G, G.daily.day, 5, 1, 2).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G)); // 80% is not enough
   assert(L.recordDaily(G, G.daily.day, 5, 0, 2).perfect); assert(!L.dailyBlocks(G));
+  // 90% or higher on each part is enough; below 90% is not; path unlocks stay at 100%
+  assert.strictEqual(L.DAILY_PASS, 90);
+  const G90 = L.newGate(); L.ensureDaily(G90, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 11, 20));
+  const r90 = L.recordDaily(G90, G90.daily.day, 10, 1, 1); assert.strictEqual(r90.pct, 90); assert(r90.perfect); assert(G90.daily.part1); assert(L.dailyBlocks(G90));
+  assert(!L.recordDaily(G90, G90.daily.day, 10, 2, 1).perfect); assert(!G90.daily.part1); // 80%
+  assert(L.recordDaily(G90, G90.daily.day, 10, 1, 1).perfect);
+  assert(!L.recordDaily(G90, G90.daily.day, 10, 2, 2).perfect); assert(G90.daily.part1); assert(L.dailyBlocks(G90));
+  assert(L.recordDaily(G90, G90.daily.day, 10, 1, 2).perfect); assert(!L.dailyBlocks(G90));
+  const GA = L.newGate(); L.recordAttempt(GA, 'u0', 10, 1); assert(!GA.passed.u0); // units still need 100%
+  L.recordAttempt(GA, 'u0', 10, 0); assert(GA.passed.u0);
   // cloze questions: options from pool, one correct, no confusable, form matches blank
   const pool = W.slice(0, 20);
   for (const w of pool) {

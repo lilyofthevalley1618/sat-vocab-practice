@@ -257,7 +257,7 @@ function dailyView() {
   else {
     intro = dly.passed
       ? '<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>'
-      : `<p>${nToday} word${nToday === 1 ? '' : 's'} learned before today. You need 100% on the first try in <b>both</b> parts to finish today\'s Daily Review.</p>`;
+      : `<p>${nToday} word${nToday === 1 ? '' : 's'} learned before today. You need 90% or higher on the first try in <b>both</b> parts to finish today\'s Daily Review.</p>`;
     const p1done = !!(dly.part1 || dly.passed);
     const p1status = p1done ? '✓ Done' : paused1 ? `Paused at ${paused1.done}/${paused1.total}` : 'Open';
     const p1btn = p1done ? '' : `<button class="alt" id="daily1">${paused1 ? 'Resume Part 1' : 'Start Part 1'}</button>`;
@@ -267,7 +267,7 @@ function dailyView() {
     parts = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
       <div class="unit"><h3>Part 1: Meanings</h3><small>Check the meaning of all of today\'s words.</small><small>${p1status}</small>
         <div class="row" style="margin-top:.5rem">${p1btn}</div></div>
-      <div class="unit${p2open ? '' : ' locked'}"><h3>Part 2: Fill in the blank</h3><small>${p2open ? `${half} fill-in sentences (a random half of today\'s words).` : 'Unlocks after you get 100% on Part 1.'}</small><small>${p2status}</small>
+      <div class="unit${p2open ? '' : ' locked'}"><h3>Part 2: Fill in the blank</h3><small>${p2open ? `${half} fill-in sentences (a random half of today\'s words).` : 'Unlocks after you get 90% or higher on Part 1.'}</small><small>${p2status}</small>
         <div class="row" style="margin-top:.5rem">${p2btn}</div></div>
     </div>`;
   }
@@ -731,10 +731,10 @@ function done(title, total, m, stage, result) {
     : `<p class="fb no">${result.pct}% on the first try. This practice is optional; retake it whenever you like. It does not gate your path.</p>`)
     : result && isDaily ? (
     result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>'
-    : stage.type === 'daily' && result.perfect ? '<p class="fb ok">Part 1 done — 100% on the first try. Part 2: Fill in the blank is now unlocked on the Daily Review tab.</p>'
-    : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 100% before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
-    : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 100% on the first try in both parts. Your path is open again.</p>'
-    : `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 100% on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`) : '';
+    : stage.type === 'daily' && result.perfect ? '<p class="fb ok">Part 1 done — 90% or higher on the first try. Part 2: Fill in the blank is now unlocked on the Daily Review tab.</p>'
+    : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 90% or higher before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
+    : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 90% or higher on the first try in both parts. Your path is open again.</p>'
+    : `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 90% or higher on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`) : '';
   const verdict = dailyMsg || (isPractice ? '<p class="fb ok">This practice is optional and does not affect your path or unlocks.</p>' : (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
     : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`));
   const canRetake = stage && !(isDaily && result && result.perfect);
