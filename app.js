@@ -307,19 +307,8 @@ function dailyView() {
 
 
 function buddySvg(mood = 'idle', size = 96) {
-  const h = Math.round(size * 1.4);
-  const eyes = mood === 'happy'
-    ? '<path d="M31 54 q4 -5 8 0" fill="none" stroke="#2e3a43" stroke-width="2.2" stroke-linecap="round"/><path d="M43 54 q4 -5 8 0" fill="none" stroke="#2e3a43" stroke-width="2.2" stroke-linecap="round"/>'
-    : mood === 'sad'
-    ? '<circle cx="35" cy="55" r="3.2" fill="#2e3a43"/><circle cx="47" cy="55" r="3.2" fill="#2e3a43"/><path d="M30 49 q5 3 10 0" fill="none" stroke="#2e3a43" stroke-width="1.4" stroke-linecap="round"/><path d="M42 49 q5 3 10 0" fill="none" stroke="#2e3a43" stroke-width="1.4" stroke-linecap="round"/><circle cx="36.2" cy="56" r="1" fill="#fff"/><circle cx="48.2" cy="56" r="1" fill="#fff"/>'
-    : '<circle cx="35" cy="54" r="3.4" fill="#2e3a43"/><circle cx="47" cy="54" r="3.4" fill="#2e3a43"/><circle cx="36.2" cy="52.8" r="1.1" fill="#fff"/><circle cx="48.2" cy="52.8" r="1.1" fill="#fff"/>';
-  const mouth = mood === 'happy'
-    ? '<path d="M35 63 q6 7 12 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>'
-    : mood === 'sad'
-    ? '<path d="M36 67 q5 -5 10 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>'
-    : '<path d="M36 63 q5 4 10 0" fill="none" stroke="#2e3a43" stroke-width="2" stroke-linecap="round"/>';
-  const spark = mood === 'happy' ? '<path d="M58 36 l1.4 3.2 3.2 1.4 -3.2 1.4 -1.4 3.2 -1.4 -3.2 -3.2 -1.4 3.2 -1.4 z" fill="#C4B3D6"/>' : '';
-  return `<svg class="buddy" width="${size}" height="${h}" viewBox="0 0 80 112" role="img" aria-label="Study buddy, a friendly pencil"><ellipse cx="40" cy="106" rx="16" ry="3.8" fill="#2e3a43" opacity=".1"/><path d="M32 86 L40 108 L48 86 Z" fill="#E8D5B0"/><path d="M37.2 98 L40 108 L42.8 98 Z" fill="#2e3a43"/><rect x="24" y="26" width="32" height="62" rx="5" fill="#E0E6D4" stroke="#8A9778" stroke-width="1.6"/><rect x="24" y="26" width="7" height="62" rx="3" fill="#C5D0B4"/><rect x="22.5" y="18" width="35" height="10" rx="1.5" fill="#cfe3f3" stroke="#4f7ea6" stroke-width="1.2"/><path d="M26 18 V11 Q26 5 40 5 Q54 5 54 11 V18 Z" fill="#C4B3D6"/><ellipse cx="40" cy="8.5" rx="9" ry="2.6" fill="#D8C8E4"/><path d="M24 58 Q12 62 16 74" fill="none" stroke="#8A9778" stroke-width="2.3" stroke-linecap="round"/><path d="M56 58 Q68 62 64 74" fill="none" stroke="#8A9778" stroke-width="2.3" stroke-linecap="round"/><circle cx="33" cy="60" r="3.2" fill="#E8B8B0" opacity=".55"/><circle cx="49" cy="60" r="3.2" fill="#E8B8B0" opacity=".55"/>${eyes}${mouth}${spark}</svg>`;
+  const cls = 'buddy' + (mood === 'happy' ? ' buddy-happy' : mood === 'sad' ? ' buddy-sad' : '');
+  return `<img class="${cls}" src="buddy-frog.webp?v=${VERSION}" width="${size}" alt="Study buddy, a friendly frog">`;
 }
 function buddyLine() {
   const learned = WORDS.filter(w => !L.isNew(prog, w)).length;
@@ -388,7 +377,7 @@ function profileView() {
   const finishLine = learned >= 384
     ? 'You have learned all 384 words.'
     : `At ${s.wordsPerDay} words a day, you would finish all 384 words on <b>${esc(L.formatDate(fin.date))}</b> (${fin.daysLeft} day${fin.daysLeft === 1 ? '' : 's'}).`;
-  const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 80)}</div>`;
+  const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 56)}</div>`;
   app.innerHTML = tabs('profile') + `<section class="card">
     <div class="row" style="margin-bottom:.7rem">${photo}<div><h2>Profile</h2><p class="muted">Goals, study time, and your photo stay on this device. They are included in a backup when the photo is a reasonable size.</p></div></div>
     <p><b>Today:</b> ${esc(L.formatDuration(today))} of ${s.minutesPerDay} min goal</p>
@@ -680,7 +669,7 @@ function quiz(words, title, intro = false, pool = WORDS, stage = null) {
     let answered = false;
     const answer = (ok, chosen, typed) => {
       if (answered) return; answered = true; if (ok) ding();
-      if ($('#buddy')) $('#buddy').innerHTML = buddySvg(ok ? 'happy' : 'sad', 52);
+      if ($('#buddy')) $('#buddy').innerHTML = buddySvg(ok ? 'happy' : 'sad', 40);
       if (!s.seen.includes(k)) { L.grade(prog, w, ok); save(); }
       L.answerSession(s, ok); s.curQ = null; persist();
       const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');

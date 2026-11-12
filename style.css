@@ -34,7 +34,10 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}td,th{padding:.35rem;
 .pick-unit{margin:.35rem 0 .75rem}.pick-unit h3{margin:0 0 .3rem;font-size:1rem;position:sticky;top:0;background:var(--card);padding:.25rem 0;z-index:1}
 .pick-w{display:flex;gap:.45rem;align-items:flex-start;padding:.22rem 0;cursor:pointer;color:var(--ink)}.pick-w + .pick-w{border-top:1px solid #eae3d6}
 mark{background:#dfeaf5;color:inherit;border-radius:4px;padding:0 .15em;font-weight:600}
-.buddy{display:block;flex:none;line-height:0}
+.buddy{display:block;flex:none;line-height:0;height:auto;object-fit:contain}
+.buddy-happy{animation:buddy-bounce .5s ease}
+.buddy-sad{transform:translateY(2px)}
+@keyframes buddy-bounce{0%,100%{transform:translateY(0)}35%{transform:translateY(-5px)}60%{transform:translateY(-1.5px)}}
 .profile-photo{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--sage-d);background:var(--sage);flex:none}
 .profile-photo-empty{display:flex;align-items:center;justify-content:center;overflow:hidden}
 .survey label{display:block;margin:.85rem 0 .3rem}.survey select{font:inherit;padding:.55rem;border-radius:10px;border:2px solid var(--blue);background:var(--card);color:var(--ink);width:100%;max-width:320px}
