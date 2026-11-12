@@ -38,3 +38,4 @@ mark{background:#dfeaf5;color:inherit;border-radius:4px;padding:0 .15em;font-wei
 .profile-photo{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--sage-d);background:var(--sage);flex:none}
 .profile-photo-empty{display:flex;align-items:center;justify-content:center;overflow:hidden}
 .survey label{display:block;margin:.85rem 0 .3rem}.survey select{font:inherit;padding:.55rem;border-radius:10px;border:2px solid var(--blue);background:var(--card);color:var(--ink);width:100%;max-width:320px}
+.opts button:disabled,#tf button:disabled,#ti:disabled{pointer-events:none}

@@ -49,7 +49,11 @@ function armAdvance(go) {
   let armed = false;
   const on = e => {
     if (!armed || e.type !== 'click') return;
-    const hit = e.target && e.target.closest && e.target.closest('a[href], button, input, textarea, select, label');
+    const t = e.target;
+    // Locked answer buttons are disabled (clicks often never fire on the button itself);
+    // pointer-events let the tap reach here via .opts, and we also accept a disabled opts button.
+    if (t && t.closest && t.closest('.opts')) { clearAdvance(); go(); return; }
+    const hit = t && t.closest && t.closest('a[href], button, input, textarea, select, label');
     if (hit && !L.advanceClickOk(hit)) return;
     clearAdvance();
     go();
