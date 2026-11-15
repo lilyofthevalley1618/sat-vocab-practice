@@ -95,14 +95,14 @@ let stale = false;
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : VERSION).then(v => { if (v.trim() !== VERSION) { stale = true; home(); } }).catch(() => {});
 const startDaily = () => {
   dayCheck();
-  if (gate.daily.passed || gate.daily.part1) return dailyView();
+  if (!gate.daily || gate.daily.off || !L.isReviewDay(gate.daily.day) || gate.daily.passed || gate.daily.part1) return dailyView();
   const st = dailyStage();
   if (st.words.length || gate.resume.daily) quiz(st.words, 'Daily Review, Part 1', true, st.words, st);
   else dailyView();
 };
 const startDailyPart2 = () => {
   dayCheck();
-  if (!gate.daily || gate.daily.passed || !gate.daily.part1 || (gate.daily.day !== L.laDay())) return dailyView();
+  if (!gate.daily || gate.daily.off || !L.isReviewDay(gate.daily.day) || gate.daily.passed || !gate.daily.part1 || (gate.daily.day !== L.laDay())) return dailyView();
   const baseKeys = gate.daily.part1Keys || dailyStage().words.map(L.key);
   const st = { type: 'daily2', id: 'daily2', day: gate.daily.day, words: baseKeys.map(k => BYKEY[k]).filter(Boolean) };
   quiz(st.words, 'Daily Review, Part 2', false, st.words, st);
@@ -267,7 +267,9 @@ function dailyView() {
   const half = nToday ? L.halfCount(nToday) : 0;
   const paused1 = gate.resume.daily, paused2 = gate.resume.daily2;
   let intro, parts = '';
-  if (!dly.words.length && dly.passed) intro = '<p>Nothing to review yet today. Words you start today will be in tomorrow\'s Daily Review.</p>';
+  if (dly.off || !L.isReviewDay(dly.day)) {
+    intro = '<p>There\'s no review today.</p><p class="muted">You can do extra practice from the Path tab if you like.</p>';
+  } else if (!dly.words.length && dly.passed) intro = '<p>Nothing to review yet today. Words you start now will be in a later Daily Review.</p>';
   else {
     intro = dly.passed
       ? '<p>✓ Done for today. You finished both parts of Daily Review. Your path is open.</p>'
@@ -570,10 +572,10 @@ function home() {
   const pracPaused = pracRes && Array.isArray(pracRes.queue) && pracRes.queue.length;
   const missPaused = missRes && Array.isArray(missRes.queue) && missRes.queue.length;
   app.innerHTML = tabs('path') + (stale ? `<p class="fb no">A newer version is available. <button id="upd">Reload</button></p>` : '') + `<section class="card"><div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<p class="muted">${esc(buddyLine())}</p></div><div class="stats">
-   <div class="stat"><b>${L.dailyBlocks(gate) ? 'To do' : 'Done'}</b>today's Daily Review</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
+   <div class="stat"><b>${(dly && (dly.off || !L.isReviewDay(dly.day))) ? 'None' : (block ? 'To do' : 'Done')}</b>${(dly && (dly.off || !L.isReviewDay(dly.day))) ? 'no review today' : "today's Daily Review"}</div><div class="stat"><b>${learned}</b>of 384 started</div></div>
    <div class="row" style="margin-top:1rem">${missPaused ? `<button class="alt" id="miss">Resume missed words (${missRes.done}/${missRes.total})</button>` : ''}
    <button class="ghost" id="data">Backup / restore</button></div>
-   ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ''}
+   ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ((dly && (dly.off || !L.isReviewDay(dly.day))) ? '<p class="muted">There\'s no review today. You can do extra practice below if you like.</p>' : '')}
    <div class="prac-top"><button id="prac" ${learned ? '' : 'disabled'}>Choose your practice words</button>
    ${pracPaused ? `<button class="alt" id="pr">Resume practice (${pracRes.done}/${pracRes.total})</button>` : ''}</div>
    <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice is optional and does not affect unlocks.</p>

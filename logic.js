@@ -189,9 +189,22 @@ function clearResume(owner, id) {
   if (owner && owner.resume && id) delete owner.resume[id];
   return owner;
 }
-// Daily Review: each Pacific calendar day, words started before that day must be
-// reviewed at 90% or higher on the first try in both parts before the path can continue.
+// Daily Review: every other Pacific calendar day (epoch 2026-11-15, then 17, 19, ...),
+// words already started must be reviewed at 90% or higher on the first try in both parts
+// before the path can continue. Off days do not assign a review and do not block the path.
 const DAILY_PASS = 90;
+const REVIEW_EPOCH = '2026-11-15';
+function isoUtcDays(iso) {
+  const p = String(iso || '').split('-').map(Number);
+  if (p.length !== 3 || !p.every(Number.isFinite)) return null;
+  return Date.UTC(p[0], p[1] - 1, p[2]) / 864e5;
+}
+function isReviewDay(day) {
+  const iso = typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : laDay(day);
+  const a = isoUtcDays(iso), b = isoUtcDays(REVIEW_EPOCH);
+  if (a == null || b == null) return false;
+  return ((a - b) % 2 + 2) % 2 === 0;
+}
 // Grammar practice: best first-try score per topic; never lowered.
 function recordGrammar(g, id, total, right) { const pct = Math.round(right / total * 100), p = g[id] || { best: 0, tries: 0 }; p.tries++; p.best = Math.max(p.best, pct); g[id] = p; return pct; }
 // Wrong-answer explanation built only from the question's own word/definition data.
@@ -254,15 +267,17 @@ function laDay(now = Date.now()) {
 }
 function ensureDaily(gate, prog, now = Date.now()) {
   const d = laDay(now);
-  if (!gate.daily || gate.daily.day !== d) {
-    const words = Object.keys(prog).sort();
-    gate.daily = { day: d, words, passed: words.length === 0, part1: false };
-    if (gate.resume) { delete gate.resume.daily; delete gate.resume.daily2; }
+  if (gate.daily && gate.daily.day === d) return false;
+  if (gate.resume) { delete gate.resume.daily; delete gate.resume.daily2; }
+  if (!isReviewDay(d)) {
+    gate.daily = { day: d, words: [], passed: true, part1: false, off: true };
     return true;
   }
-  return false;
+  const words = Object.keys(prog).sort();
+  gate.daily = { day: d, words, passed: words.length === 0, part1: false };
+  return true;
 }
-const dailyBlocks = gate => !!(gate.daily && !gate.daily.passed);
+const dailyBlocks = gate => !!(gate.daily && !gate.daily.off && !gate.daily.passed && isReviewDay(gate.daily.day));
 function recordDaily(gate, day, total, firstTryMisses, part = 1) {
   if (!gate.daily || gate.daily.day !== day) return { perfect: false, stale: true, part };
   const pct = total ? Math.round((total - firstTryMisses) / total * 100) : 0;
@@ -671,7 +686,7 @@ function importData(text) {
     const g = o.gate;
     if (typeof g !== 'object' || ['passed', 'best', 'resume'].some(f => g[f] != null && typeof g[f] !== 'object')) throw new Error('Bad unlock data');
     gate = { passed: g.passed || {}, best: g.best || {}, resume: g.resume || {} };
-    if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) { gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed, part1: !!g.daily.part1 }; if (Array.isArray(g.daily.part1Keys)) gate.daily.part1Keys = g.daily.part1Keys; }
+    if (g.daily && typeof g.daily.day === 'string' && Array.isArray(g.daily.words)) { gate.daily = { day: g.daily.day, words: g.daily.words, passed: !!g.daily.passed, part1: !!g.daily.part1 }; if (Array.isArray(g.daily.part1Keys)) gate.daily.part1Keys = g.daily.part1Keys; if (g.daily.off) gate.daily.off = true; }
     if (g.clozeLast && typeof g.clozeLast === 'object') gate.clozeLast = g.clozeLast;
     for (const s of Object.values(gate.resume)) if (!s || !Array.isArray(s.queue) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) throw new Error('Bad paused test');
   }
@@ -687,5 +702,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

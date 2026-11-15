@@ -129,11 +129,18 @@ assert.strictEqual(L.laDay(DT), '2026-11-07');
 assert.strictEqual(L.laDay(Date.UTC(2026, 10, 8, 7, 59)), '2026-11-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 10, 8, 8)), '2026-11-08');
 assert.strictEqual(L.laDay(Date.UTC(2026, 6, 8, 6, 59)), '2026-07-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 6, 8, 7)), '2026-07-08'); // PDT
 assert.strictEqual(L.laDay(Date.UTC(2026, 2, 8, 7, 59)), '2026-03-07'); assert.strictEqual(L.laDay(Date.UTC(2026, 2, 8, 8)), '2026-03-08'); // DST start day
+assert.strictEqual(L.REVIEW_EPOCH, '2026-11-15');
+assert(L.isReviewDay('2026-11-15')); assert(L.isReviewDay('2026-11-17')); assert(L.isReviewDay('2026-11-07'));
+assert(!L.isReviewDay('2026-11-16')); assert(!L.isReviewDay('2026-11-14')); assert(!L.isReviewDay('2026-11-08'));
+assert(L.isReviewDay(Date.UTC(2026, 10, 15, 20))); // Nov 15 12pm Pacific is a review day
 const DG = L.newGate(), DP = {};
 assert(L.ensureDaily(DG, DP, DT)); assert(!L.dailyBlocks(DG)); // new user: nothing to review
 L.grade(DP, W[0], true, DT); L.grade(DP, W[1], true, DT); DG.passed.u0 = DT;
 assert(!L.ensureDaily(DG, DP, DT + 3600e3)); assert(!L.dailyBlocks(DG)); // words learned today don't block today
-const DT2 = DT + 864e5; assert(L.ensureDaily(DG, DP, DT2)); assert(L.dailyBlocks(DG)); assert.deepStrictEqual(DG.daily.words, [L.key(W[0]), L.key(W[1])].sort());
+const OFF = DT + 864e5; // Nov 8, an off day
+assert(L.ensureDaily(DG, DP, OFF)); assert(!L.dailyBlocks(DG)); assert(DG.daily.off); assert.deepStrictEqual(DG.daily.words, []);
+const DT2 = DT + 2 * 864e5; // Nov 9, the next review day
+assert(L.ensureDaily(DG, DP, DT2)); assert(L.dailyBlocks(DG)); assert.deepStrictEqual(DG.daily.words, [L.key(W[0]), L.key(W[1])].sort());
 assert(DG.passed.u0); // unlocks kept
 const day2 = DG.daily.day;
 assert(!L.recordDaily(DG, day2, 2, 1).perfect); assert(L.dailyBlocks(DG)); // mistake
@@ -143,11 +150,17 @@ assert(L.recordDaily(DG, day2, 2, 0, 1).perfect); assert(L.dailyBlocks(DG)); // 
 assert(L.recordDaily(DG, day2, 1, 0, 2).perfect); assert(!L.dailyBlocks(DG));
 L.grade(DP, W[2], true, DT2); assert(!L.ensureDaily(DG, DP, DT2 + 1000)); assert(!L.dailyBlocks(DG)); // no re-block same day
 assert(L.recordDaily(DG, '2026-01-01', 2, 0).stale); // old-day run doesn't count
-// rollover clears paused daily session; backup keeps daily
-DG.resume.daily = L.newSession(['x']); L.ensureDaily(DG, DP, DT2 + 864e5); assert(!DG.resume.daily); assert.strictEqual(DG.daily.words.length, 3);
+// rollover to the next review day clears paused daily session; backup keeps daily
+DG.resume.daily = L.newSession(['x']); L.ensureDaily(DG, DP, DT2 + 2 * 864e5); assert(!DG.resume.daily); assert.strictEqual(DG.daily.words.length, 3);
 const DB = L.importData(L.exportData(DP, DG)); assert.deepStrictEqual(DB.gate.daily, DG.daily); assert.deepStrictEqual(DB.gate.passed, DG.passed);
-// existing user with no daily record: first load blocks on all started words
+// existing user with no daily record: first load on a review day blocks on all started words
 const EG = L.newGate(); EG.passed.u0 = 1; L.ensureDaily(EG, DP, DT); assert(L.dailyBlocks(EG)); assert.strictEqual(EG.daily.words.length, 3);
+// a finished review "yesterday" still starts a fresh review on Nov 15
+const Y14 = Date.UTC(2026, 10, 14, 20), T15 = Date.UTC(2026, 10, 15, 20);
+const NG = L.newGate(); const NP = { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } };
+NG.daily = { day: '2026-11-14', words: ['abate'], passed: true, part1: true };
+assert(L.ensureDaily(NG, NP, T15)); assert.strictEqual(NG.daily.day, '2026-11-15');
+assert(L.dailyBlocks(NG)); assert.deepStrictEqual(NG.daily.words, ['abate']);
 // small pool: options stay within learned words
 const ds = { type: 'daily', words: [W[0], W[1]], pool: [W[0], W[1]] }; const dq = L.buildQuestion(ds, L.key(W[0]), 0, BY);
 assert.strictEqual(dq.options.length, 2); assert(dq.options.every(o => o === W[0] || o === W[1]));
@@ -523,7 +536,7 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   const keys = W.slice(0, 60).map(L.key), half = L.pickHalf(keys, () => 0.3);
   assert.strictEqual(half.length, 30); assert.strictEqual(new Set(half).size, 30); assert(half.every(k => keys.includes(k)));
   // part 1 perfect does not pass; both needed; part 2 fail keeps part1
-  const G = L.newGate(); L.ensureDaily(G, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 10, 20));
+  const G = L.newGate(); L.ensureDaily(G, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 15, 20));
   assert(L.dailyBlocks(G));
   assert(L.recordDaily(G, G.daily.day, 1, 0, 1).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
   assert(!L.recordDaily(G, G.daily.day, 5, 1, 2).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G)); // 80% is not enough
