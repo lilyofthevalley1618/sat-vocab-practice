@@ -2,6 +2,7 @@
 const DAY = 864e5;
 const INTERVALS = [1, 3, 7, 14, 30]; // days
 const UNIT_SIZE = 10;
+const PASS = 90; // first-try percent needed to pass a gated step
 
 function makeUnits(words, size = UNIT_SIZE) {
   const units = [];
@@ -89,8 +90,9 @@ function choices(word, all, n = 4, rnd = Math.random) {
 
 // Question types for a session. Intro (unit learn) quizzes alternate the two
 // multiple-choice directions so both appear; other sessions also mix in typed recall.
-// Learning path: Unit, Unit, pair fill-in review (just those two units), cumulative review (all words so far);
+// Learning path: Unit, Unit, pair fill-in review (just those two units);
 // after every 6 units a 60-word Big Test; Final Test after the last unit. An unpaired last unit gets its own pair review.
+// Cumulative all-words reviews were removed; Daily Review covers that practice.
 function makePath(units) {
   const path = [];
   units.forEach((u, i) => {
@@ -102,8 +104,6 @@ function makePath(units) {
       const a = (i % 2 === 1) ? i - 1 : i, b = i, words = units.slice(a, b + 1).flat();
       path.push({ type: 'pair', id: 'pr' + a, a, b, from: a, to: b, words, pool: words });
     }
-    // Cumulative review: every word from Unit 1 through this unit (id kept as before so saved unlocks still match).
-    if (i % 2 === 1) path.push({ type: 'review', id: 'r' + (i - 1), a: 0, b: i, words: units.slice(0, i + 1).flat() });
     if (i % 6 === 5) path.push({ type: 'big', id: 'b' + (i + 1) / 6, n: (i + 1) / 6, from: i - 5, to: i, words: units.slice(i - 5, i + 1).flat() });
   });
   path.push({ type: 'final', id: 'final', words: units.flat() });
@@ -122,16 +122,35 @@ function migratePairUnlocks(path, gate, now = Date.now()) {
   });
   return changed;
 }
-// Gate: stage n is open only when the stage before it was passed with 100% first-try accuracy.
+// Gate: stage n is open only when the stage before it was passed with 90% or higher first-try accuracy.
 // Passing is permanent (later mistakes never relock).
 function newGate() { return { passed: {}, best: {}, resume: {} }; }
 function isUnlocked(path, idx, gate) { return idx === 0 || !!(gate.passed[path[idx - 1].id]); }
 function recordAttempt(gate, id, total, firstTryMisses, now = Date.now()) {
   const pct = total ? Math.round((total - firstTryMisses) / total * 100) : 0;
   gate.best[id] = Math.max(gate.best[id] || 0, pct);
-  const perfect = total > 0 && firstTryMisses === 0;
+  const perfect = total > 0 && pct >= PASS;
   if (perfect && !gate.passed[id]) gate.passed[id] = now;
   return { pct, perfect };
+}
+// Mark already-earned 90%+ best scores as passed, and if a removed cumulative review
+// was passed, grant the preceding pair review so later units stay (or become) unlocked.
+function migratePassUnlocks(gate, path, now = Date.now()) {
+  if (!gate) return false;
+  gate.passed = gate.passed || {};
+  gate.best = gate.best || {};
+  let changed = false;
+  const ids = new Set([...Object.keys(gate.best), ...Object.keys(gate.passed), ...((path || []).map(it => it.id))]);
+  for (const id of ids) {
+    if (!gate.passed[id] && (gate.best[id] || 0) >= PASS) { gate.passed[id] = now; changed = true; }
+  }
+  for (const id of Object.keys(gate.passed)) {
+    const m = /^r(\d+)$/.exec(id);
+    if (!m || !gate.passed[id]) continue;
+    const pr = 'pr' + m[1];
+    if (!gate.passed[pr]) { gate.passed[pr] = now; changed = true; }
+  }
+  return changed;
 }
 // Quiz session (serializable for pause/resume). First answer per word is what counts; misses retry later.
 function newSession(keys, rnd = Math.random) {
@@ -192,7 +211,7 @@ function clearResume(owner, id) {
 // Daily Review: every other Pacific calendar day (epoch 2026-11-15, then 17, 19, ...),
 // words already started must be reviewed at 90% or higher on the first try in both parts
 // before the path can continue. Off days do not assign a review and do not block the path.
-const DAILY_PASS = 90;
+const DAILY_PASS = PASS;
 const REVIEW_EPOCH = '2026-11-15';
 function isoUtcDays(iso) {
   const p = String(iso || '').split('-').map(Number);
@@ -505,9 +524,26 @@ function recordGrammarAttempt(gram, id, total, firstTryMisses, now = Date.now())
   gram.passed = gram.passed || {};
   gram.gbest = gram.gbest || {};
   gram.gbest[id] = Math.max(gram.gbest[id] || 0, pct);
-  const perfect = total > 0 && firstTryMisses === 0;
+  const perfect = total > 0 && pct >= PASS;
   if (perfect && !gram.passed[id]) gram.passed[id] = now;
   return { pct, perfect };
+}
+function migrateGrammarUnlocks(gram, now = Date.now()) {
+  if (!gram || typeof gram !== 'object') return false;
+  gram.passed = gram.passed || {};
+  gram.gbest = gram.gbest || {};
+  let changed = false;
+  const ids = new Set([...Object.keys(gram.gbest), ...Object.keys(gram.passed)]);
+  for (const [k, v] of Object.entries(gram)) {
+    if (GRAM_META.has(k)) continue;
+    if (v && typeof v === 'object' && (v.best || 0) >= PASS) ids.add(k);
+  }
+  for (const id of ids) {
+    if (gram.passed[id]) continue;
+    const pct = Math.max(Number(gram.gbest[id]) || 0, (gram[id] && Number(gram[id].best)) || 0);
+    if (pct >= PASS) { gram.passed[id] = now; changed = true; }
+  }
+  return changed;
 }
 function ensureDailyGrammar(gram, path, now = Date.now()) {
   gram.passed = gram.passed || {};
@@ -702,5 +738,5 @@ function importData(text) {
   }
   return { progress: o.progress, gate, grammar, profile };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, newGate, isUnlocked, recordAttempt, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, migratePassUnlocks, migrateGrammarUnlocks, newGate, isUnlocked, recordAttempt, PASS, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;

@@ -24,7 +24,7 @@ function loadPracticePrefs() {
 const savePracticePrefs = prefs => { try { localStorage.setItem(PKEY, JSON.stringify(prefs)); } catch (e) {} };
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
 const saveGate = () => localStorage.setItem(GKEY, JSON.stringify(gate));
-if (L.migratePairUnlocks(PATH, gate)) saveGate();
+if (L.migratePassUnlocks(gate, PATH) | L.migratePairUnlocks(PATH, gate)) saveGate();
 let onHome = false;
 // Sound: on by default, saved locally. AudioContext is created lazily on the first answer click.
 const SNDKEY = 'satVocabSound.v1'; let soundOn = localStorage.getItem(SNDKEY) !== 'off'; let actx = null;
@@ -33,6 +33,7 @@ const ding = () => L.playDing(soundOn, getCtx);
 const soundBtn = () => `<button class="ghost" id="snd" aria-pressed="${soundOn}" title="Play a ding on correct answers">Sound: ${soundOn ? 'On' : 'Off'}</button>`;
 document.addEventListener('click', e => { if (e.target && e.target.id === 'snd') { soundOn = !soundOn; localStorage.setItem(SNDKEY, soundOn ? 'on' : 'off'); e.target.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); e.target.setAttribute('aria-pressed', soundOn); } });
 const RKEY = 'satGrammar.v1'; let gram = Object.assign({ passed: {}, resume: {} }, L.migrateGrammar(JSON.parse(localStorage.getItem(RKEY) || '{}'))); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
+if (L.migrateGrammarUnlocks(gram)) saveGram();
 const FKEY = 'satVocabProfile.v1';
 let profile = L.newProfile();
 try { const raw = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (raw) profile = L.sanitizeProfile(raw); } catch (e) {}
@@ -122,9 +123,9 @@ const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = 
 const gLabel = it => it.type === 'rule' ? it.topic.title : it.type === 'exam' ? 'Part 1 Exam' : it.type === 'review' ? 'Part 2 Review ' + (Number(String(it.id).replace('g-rev', '')) + 1) : 'Grammar Final Exam';
 const gSub = it => {
   if (it.type === 'rule') return it.topic.rule.length > 90 ? it.topic.rule.slice(0, 90) + '…' : it.topic.rule;
-  if (it.type === 'exam') return '60 questions on the 9 must-know rules. You need 100% on the first try to continue.';
-  if (it.type === 'review') return `${it.n} questions on: ${it.topics.map(t => t.title).join('; ')}. You need 100% on the first try to continue.`;
-  return '70 questions on all 28 rules. You need 100% on the first try to finish the path.';
+  if (it.type === 'exam') return '60 questions on the 9 must-know rules. You need 90% or higher on the first try to continue.';
+  if (it.type === 'review') return `${it.n} questions on: ${it.topics.map(t => t.title).join('; ')}. You need 90% or higher on the first try to continue.`;
+  return '70 questions on all 28 rules. You need 90% or higher on the first try to finish the path.';
 };
 function grammarView() {
   stopTrack(); onHome = false;
@@ -135,13 +136,13 @@ function grammarView() {
     const open = L.grammarStepOpen(GPATH, idx, gram), pass = !!(gram.passed && gram.passed[it.id]);
     const best = it.type === 'rule' ? (gram[it.id] && gram[it.id].best) : (gram.gbest && gram.gbest[it.id]);
     const res = gram.resume && gram.resume[it.id];
-    const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : (dailyDue && L.isUnlocked(GPATH, idx, gram) ? "🔒 Finish today's grammar review first" : '🔒 Locked');
+    const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 90%` : 'Open') : (dailyDue && L.isUnlocked(GPATH, idx, gram) ? "🔒 Finish today's grammar review first" : '🔒 Locked');
     const btn = !open ? '<button disabled>Locked</button>' : res && L.validGramResume(res, res.total) ? `<button data-s="${idx}">Resume (${res.done}/${res.total})</button>` : `<button data-s="${idx}">${it.type === 'rule' ? (pass ? 'Practice' : 'Learn') : (pass ? 'Retake' : 'Start')}</button>`;
     return `<div class="unit ${it.type}${open ? '' : ' locked'}${pass ? ' passed' : ''}"><h3>${idx + 1}. ${esc(gLabel(it))}</h3><small>${esc(gSub(it))}</small><small>${status}</small><div class="row" style="margin-top:.5rem">${btn}</div></div>`;
   };
   const p1 = [], p2 = [];
   GPATH.forEach((it, idx) => (idx <= 9 ? p1 : p2).push(card(it, idx)));
-  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p>Part 1: the 9 must-know rules, then a 60-question exam. Part 2: the rest, with a review every 5 rules and a final exam. 100% to move on.</p><p class="muted">Sources: <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a> · <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a></p>${banner}</section>
+  app.innerHTML = tabs('grammar') + `<section class="card"><h2>SAT Grammar Rules</h2><p>Part 1: the 9 must-know rules, then a 60-question exam. Part 2: the rest, with a review every 5 rules and a final exam. 90% or higher to move on.</p><p class="muted">Sources: <a href="https://blog.prepscholar.com/sat-grammar-rules-you-must-know">SAT Grammar Rules You Must Know</a> · <a href="https://blog.prepscholar.com/the-complete-guide-to-sat-grammar-rules">The Complete Guide to SAT Grammar Rules</a></p>${banner}</section>
    <h2>Part 1: 9 must-know rules</h2><div class="units">${p1.join('')}</div>
    <h2>Part 2: Remaining rules</h2><div class="units">${p2.join('')}</div>`;
   wireTabs(); app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => startGramStep(GPATH[+b.dataset.s], +b.dataset.s));
@@ -202,7 +203,8 @@ function showGramQ(it, s) {
     let result;
     if (isDaily) {
       if (gram.daily && gram.daily.day === L.laDay()) {
-        result = { pct: s.total ? Math.round((s.total - s.missed.length) / s.total * 100) : 0, perfect: s.missed.length === 0, stale: false };
+        const gpct = s.total ? Math.round((s.total - s.missed.length) / s.total * 100) : 0;
+        result = { pct: gpct, perfect: s.total > 0 && gpct >= L.PASS, stale: false };
         if (result.perfect) gram.daily.passed = true;
       } else result = { stale: true, pct: 0, perfect: false };
     } else {
@@ -214,11 +216,11 @@ function showGramQ(it, s) {
     const verdict = result.stale
       ? 'A new day started, so this run no longer counts. Start today\'s grammar review.'
       : result.perfect
-        ? (isDaily ? 'Daily grammar review done — 100% on the first try. You can continue new grammar today. This does not gate your vocab path.'
-          : `100% on the first try — ${nxt ? `<b>${esc(gLabel(nxt))}</b> is unlocked.` : 'you finished the grammar path!'}`)
+        ? (isDaily ? 'Daily grammar review done — ${result.pct}% on the first try. You can continue new grammar today. This does not gate your vocab path.'
+          : `${result.pct}% on the first try — ${nxt ? `<b>${esc(gLabel(nxt))}</b> is unlocked.` : 'you finished the grammar path!'}`)
         : isDaily
-          ? `${result.pct}% on the first try. You need 100% before you continue new grammar today. Retake as many times as you like. This does not gate your vocab path.`
-          : `${result.pct}% on the first try. You need 100% to unlock the next step${gram.passed[it.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.`;
+          ? `${result.pct}% on the first try. You need 90% or higher before you continue new grammar today. Retake as many times as you like. This does not gate your vocab path.`
+          : `${result.pct}% on the first try. You need 90% or higher to unlock the next step${gram.passed[it.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.`;
     const canRetake = !(isDaily && result.perfect);
     app.innerHTML = `<section class="card"><h2>${esc(titleOf())} — finished</h2><p>${s.total - s.missed.length} of ${s.total} right on the first try.</p>
       <p class="fb ${result.stale || !result.perfect ? 'no' : 'ok'}">${verdict}</p>
@@ -310,7 +312,7 @@ function dailyView() {
     gBtn = '';
   } else {
     gStatus = gPaused && L.validGramResume(gPaused, gPaused.total) ? `Paused at ${gPaused.done}/${gPaused.total}` : 'Open';
-    gBlurb = 'Review of grammar rules you have already passed (about 10 questions). You need 100% on the first try before you continue new grammar today. It does not gate your vocab path or vocab Daily Review.';
+    gBlurb = 'Review of grammar rules you have already passed (about 10 questions). You need 90% or higher on the first try before you continue new grammar today. It does not gate your vocab path or vocab Daily Review.';
     gBtn = `<button class="alt" id="gDaily">${gPaused && L.validGramResume(gPaused, gPaused.total) ? 'Resume review' : 'Start review'}</button>`;
   }
   const grammar = `<div class="units" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:.7rem">
@@ -578,11 +580,11 @@ function home() {
    ${block ? '<p class="fb no">Your path is paused until today\'s Daily Review is done. Open the <b>Daily Review</b> tab.</p>' : ((dly && (dly.off || !L.isReviewDay(dly.day))) ? '<p class="muted">There\'s no review today. You can do extra practice below if you like.</p>' : '')}
    <div class="prac-top"><button id="prac" ${learned ? '' : 'disabled'}>Choose your practice words</button>
    ${pracPaused ? `<button class="alt" id="pr">Resume practice (${pracRes.done}/${pracRes.total})</button>` : ''}</div>
-   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units, then a cumulative review of all words so far. Each step opens after you get 100% on the first try in the step before it. Retake as often as you like. Practice is optional and does not affect unlocks.</p>
+   <h2>Your path</h2><p class="muted">Units have up to 10 words. After every two units there is a fill-in review of just those units. Each step opens after you get 90% or higher on the first try in the step before it. Retake as often as you like. Practice is optional and does not affect unlocks.</p>
    <div class="units">${PATH.map((it, idx) => {
      const u = it.words, open = !block && L.isUnlocked(PATH, idx, gate), pass = gate.passed[it.id], best = gate.best[it.id];
      const st = u.filter(w => !L.isNew(prog, w)).length, res = gate.resume[it.id];
-     const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 100%` : 'Open') : '🔒 Locked';
+     const status = pass ? '✓ Passed' : open ? (best != null ? `Best ${best}% · need 90%` : 'Open') : '🔒 Locked';
      const resOk = res && Array.isArray(res.queue) && res.queue.length;
      const btn = resOk ? `Resume (${res.done}/${res.total})` : it.type === 'unit' ? (st < u.length ? 'Learn' : 'Practice') : 'Start';
      return `<div class="unit ${it.type}${open ? '' : ' locked'}${pass ? ' passed' : ''}"><h3>${label(it)}</h3><small>${it.type === 'unit' ? esc(u[0].w) + ' – ' + esc(u[u.length - 1].w) : it.type === 'pair' ? `${u.length} words, fill-in sentences` : u.length + ' words'}</small>
@@ -828,7 +830,7 @@ function done(title, total, m, stage, result) {
   const isRecall = stage && stage.type === 'recall';
   const isPractice = stage && stage.type === 'practice';
   const dailyMsg = result && isRecall ? (
-    result.perfect ? '<p class="fb ok">Nice work — 100% on the first try. Recent Words Recall is optional and does not affect your path or Daily Review.</p>'
+    result.perfect ? `<p class="fb ok">Nice work — ${result.pct}% on the first try. Recent Words Recall is optional and does not affect your path or Daily Review.</p>`
     : `<p class="fb no">${result.pct}% on the first try. This practice is optional; retake it whenever you like. It does not gate your path.</p>`)
     : result && isDaily ? (
     result.stale ? '<p class="fb no">A new day started, so this run no longer counts. Start today\'s Daily Review.</p>'
@@ -836,8 +838,8 @@ function done(title, total, m, stage, result) {
     : stage.type === 'daily' ? `<p class="fb no">${result.pct}% on the first try in Part 1. You need 90% or higher before Part 2 unlocks. Retake Part 1 as many times as you like.</p>`
     : stage.type === 'daily2' && result.perfect ? '<p class="fb ok">Daily Review done — 90% or higher on the first try in both parts. Your path is open again.</p>'
     : `<p class="fb no">${result.pct}% on the first try in Part 2. Daily Review needs 90% or higher on both parts. Part 1 still counts; retake Part 2 as many times as you like.</p>`) : '';
-  const verdict = dailyMsg || (isPractice ? '<p class="fb ok">This practice is optional and does not affect your path or unlocks.</p>' : (!result ? '' : result.perfect ? `<p class="fb ok">100% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
-    : `<p class="fb no">${result.pct}% on the first try. You need 100% to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`));
+  const verdict = dailyMsg || (isPractice ? '<p class="fb ok">This practice is optional and does not affect your path or unlocks.</p>' : (!result ? '' : result.perfect ? `<p class="fb ok">${result.pct}% on the first try — ${nxt ? `<b>${label(nxt)}</b> is unlocked.` : 'you finished the whole path!'}</p>`
+    : `<p class="fb no">${result.pct}% on the first try. You need 90% or higher to unlock the next step${gate.passed[stage.id] ? ' (this step is already passed, so nothing is relocked)' : ''}. Retake it as many times as you like.</p>`));
   const canRetake = stage && !(isDaily && result && result.perfect);
   const backDaily = isDaily || isRecall;
   app.innerHTML = `<section class="card"><h2>${esc(title)} — finished</h2><p>${total - m.length} of ${total} right on the first try.</p>${verdict}
@@ -856,7 +858,7 @@ function backup() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
     $('#msg').textContent = skipped ? 'Backup downloaded. Your photo was skipped because it is large; it is still saved in this browser.' : ''; };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePassUnlocks(gate, PATH); L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); L.migrateGrammarUnlocks(gram); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 function boot() { profile.survey ? home() : surveyView(false); }

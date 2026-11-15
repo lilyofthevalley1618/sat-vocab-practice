@@ -31,22 +31,12 @@ for (const u of U) for (const w of u) {
   assert.strictEqual(new Set(ch.map(L.key)).size, ch.length); assert.strictEqual(new Set(ch.map(x => x.d.toLowerCase())).size, ch.length);
 }
 const path = L.makePath(U), revs = path.filter(x => x.type === 'review'), bigs = path.filter(x => x.type === 'big');
-assert.strictEqual(revs.length, 19); assert.strictEqual(bigs.length, 6);
+assert.strictEqual(revs.length, 0); assert.strictEqual(bigs.length, 6);
 const pairs = path.filter(x => x.type === 'pair');
-assert.strictEqual(pairs.length, 20); assert.strictEqual(path.length, 39 + 19 + 20 + 6 + 1);
+assert.strictEqual(pairs.length, 20); assert.strictEqual(path.length, 39 + 20 + 6 + 1);
 assert.strictEqual(path[path.length - 1].id, 'final'); assert.strictEqual(path[path.length - 2].id, 'pr38');
 assert.strictEqual(path[path.length - 3].id, 'u38');
 assert.strictEqual(path[path.length - 1].words.length, 384); assert.strictEqual(new Set(path[path.length - 1].words.map(L.key)).size, 384);
-revs.forEach((r, n) => {
-  assert.strictEqual(r.a, 0); assert.strictEqual(r.b, 2 * n + 1); assert.strictEqual(r.id, 'r' + (2 * n));
-  const pi = path.indexOf(r); assert.strictEqual(path[pi - 1].type, 'pair'); assert.strictEqual(path[pi - 1].id, 'pr' + (r.b - 1));
-  assert(path[pi - 2].i === r.b && path[pi - 3].i === r.b - 1);
-  assert.strictEqual(r.words.length, Math.min(20 * (n + 1), 380)); assert.strictEqual(new Set(r.words.map(L.key)).size, r.words.length);
-  assert.deepStrictEqual(r.words, W.slice(0, r.words.length));
-  const rk = new Set(r.words.map(L.key));
-  for (const w of r.words.slice(0, 40)) { const ch = L.choices(w, r.words); assert.strictEqual(ch.length, 4); assert(ch.every(x => rk.has(L.key(x)))); assert.strictEqual(new Set(ch.map(L.key)).size, 4); }
-});
-assert.deepStrictEqual(revs.map(r => r.words.length), Array.from({ length: 19 }, (_, n) => 20 * (n + 1)));
 pairs.forEach((pr, n) => {
   const last = n === 19;
   assert.strictEqual(pr.id, 'pr' + (last ? 38 : 2 * n));
@@ -56,33 +46,38 @@ pairs.forEach((pr, n) => {
   assert.strictEqual(pr.words.length, last ? 4 : 20);
   const pi = path.indexOf(pr);
   if (last) { assert.strictEqual(path[pi - 1].id, 'u38'); assert.strictEqual(path[pi + 1].id, 'final'); }
-  else { assert.strictEqual(path[pi - 1].id, 'u' + (2 * n + 1)); assert.strictEqual(path[pi + 1].id, 'r' + (2 * n)); }
+  else {
+    assert.strictEqual(path[pi - 1].id, 'u' + (2 * n + 1));
+    const nxt = path[pi + 1];
+    if ((2 * n + 2) % 6 === 0) assert.strictEqual(nxt.id, 'b' + ((2 * n + 2) / 6));
+    else assert.strictEqual(nxt.id, 'u' + (2 * n + 2));
+  }
 });
 
 // stale/mismatched saved review sessions are not resumed; matching ones are
-const r2 = path.find(x => x.id === 'r2'); assert.strictEqual(r2.words.length, 40);
-assert(!L.validResume(L.newSession(U[2].concat(U[3]).map(L.key)), r2.words));
-const okS = L.newSession(r2.words.map(L.key)); L.answerSession(okS, true); assert(L.validResume(JSON.parse(JSON.stringify(okS)), r2.words));
+const forty = W.slice(0, 40);
+assert(!L.validResume(L.newSession(U[2].concat(U[3]).map(L.key)), forty));
+const okS = L.newSession(forty.map(L.key)); L.answerSession(okS, true); assert(L.validResume(JSON.parse(JSON.stringify(okS)), forty));
 bigs.forEach((b, n) => {
-  const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'r' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'pr' + (6 * n + 4)); assert.strictEqual(path[pi - 3].id, 'u' + (6 * n + 5));
+  const pi = path.indexOf(b); assert.strictEqual(path[pi - 1].id, 'pr' + (6 * n + 4)); assert.strictEqual(path[pi - 2].id, 'u' + (6 * n + 5));
   assert.strictEqual(b.words.length, 60); assert.deepStrictEqual(b.words, W.slice(60 * n, 60 * n + 60));
 });
 // gating
 const G = L.newGate();
 assert(L.isUnlocked(path, 0, G)); for (let i = 1; i < path.length; i++) assert(!L.isUnlocked(path, i, G));
-assert.deepStrictEqual(L.recordAttempt(G, 'u0', 10, 1), { pct: 90, perfect: false }); assert(!L.isUnlocked(path, 1, G));
-// miss then retry correct in same session: still not perfect
-const S = L.newSession(U[0].map(L.key), () => 0.3); L.answerSession(S, false);
+assert.deepStrictEqual(L.recordAttempt(G, 'u0', 10, 2), { pct: 80, perfect: false }); assert(!L.isUnlocked(path, 1, G));
+assert.deepStrictEqual(L.recordAttempt(G, 'u0', 10, 1), { pct: 90, perfect: true }); assert(L.isUnlocked(path, 1, G));
+// miss then retry correct in same session: first-try misses still count
+const S = L.newSession(U[0].map(L.key), () => 0.3); L.answerSession(S, false); L.answerSession(S, false);
 while (S.queue.length) L.answerSession(S, true);
-assert.strictEqual(S.done, 10); assert.strictEqual(S.missed.length, 1);
-assert(!L.recordAttempt(G, 'u0', S.total, S.missed.length).perfect); assert(!L.isUnlocked(path, 1, G));
+assert.strictEqual(S.done, 10); assert.strictEqual(S.missed.length, 2);
+assert(!L.recordAttempt(L.newGate(), 'u0', S.total, S.missed.length).perfect);
 assert(L.recordAttempt(G, 'u0', 10, 0).perfect); assert(L.isUnlocked(path, 1, G)); assert(!L.isUnlocked(path, 2, G));
 L.recordAttempt(G, 'u0', 10, 5); assert(L.isUnlocked(path, 1, G)); assert.strictEqual(G.best.u0, 100); // no relock
-const iPr0 = path.findIndex(x => x.id === 'pr0'), iR0 = path.findIndex(x => x.id === 'r0'), iU2 = path.findIndex(x => x.id === 'u2');
-assert.strictEqual(iPr0, 2); assert.strictEqual(iR0, 3); assert.strictEqual(iU2, 4);
-L.recordAttempt(G, 'u1', 10, 0); assert(L.isUnlocked(path, iPr0, G)); assert(!L.isUnlocked(path, iR0, G)); // pair review gates cumulative
-L.recordAttempt(G, 'pr0', 20, 0); assert(L.isUnlocked(path, iR0, G)); assert(!L.isUnlocked(path, iU2, G)); // cumulative still gates unit 3
-L.recordAttempt(G, 'r0', 20, 0); assert(L.isUnlocked(path, iU2, G));
+const iPr0 = path.findIndex(x => x.id === 'pr0'), iU2 = path.findIndex(x => x.id === 'u2');
+assert.strictEqual(iPr0, 2); assert.strictEqual(iU2, 3);
+L.recordAttempt(G, 'u1', 10, 0); assert(L.isUnlocked(path, iPr0, G)); assert(!L.isUnlocked(path, iU2, G)); // pair review gates unit 3
+L.recordAttempt(G, 'pr0', 20, 0); assert(L.isUnlocked(path, iU2, G));
 const G2 = JSON.parse(JSON.stringify(G)); assert(L.isUnlocked(path, iU2, G2) && !L.isUnlocked(path, iU2 + 1, G2)); // persists via JSON
 // resume: a 384 session survives JSON round trip mid-way
 let F = L.newSession(path[path.length - 1].words.map(L.key)); for (let i = 0; i < 100; i++) L.answerSession(F, i !== 5);
@@ -213,9 +208,9 @@ const mg = L.migrateGrammar({ tense: { best: 90, tries: 1 }, sva: { best: 80, tr
 assert.deepStrictEqual(mg.tense, { best: 90, tries: 1 }); assert.deepStrictEqual(mg.sva, { best: 80, tries: 2 }); assert.deepStrictEqual(mg.apos, { best: 60, tries: 2 });
 assert.strictEqual(mg.nonessential, undefined); assert.strictEqual(mg.essential, undefined); assert.strictEqual(mg['dash-such'], undefined);
 const g0 = { passed: {} }; assert(L.isUnlocked(GP, 0, g0)); for (let i = 1; i < GP.length; i++) assert(!L.isUnlocked(GP, i, g0));
-assert(L.recordGrammarAttempt(g0, 'tense', 12, 1).pct === 92); assert(!L.isUnlocked(GP, 1, g0));
-assert(L.recordGrammarAttempt(g0, 'tense', 12, 0).perfect); assert(L.isUnlocked(GP, 1, g0));
-assert.strictEqual(g0.gbest.tense, 100);
+assert(L.recordGrammarAttempt(g0, 'tense', 12, 2).pct === 83); assert(!L.isUnlocked(GP, 1, g0));
+assert(L.recordGrammarAttempt(g0, 'tense', 12, 1).perfect); assert.strictEqual(L.recordGrammarAttempt(g0, 'tense', 12, 1).pct, 92); assert(L.isUnlocked(GP, 1, g0));
+assert.strictEqual(g0.gbest.tense, 92);
 const GT = Date.UTC(2026, 10, 10, 20); // Nov 10 12pm PST
 const g1 = { passed: { tense: 1, sva: 1 } };
 assert(L.ensureDailyGrammar(g1, GP, GT)); assert(L.grammarDailyBlocks(g1));
@@ -234,17 +229,17 @@ assert.strictEqual(gdq.length, 10);
 const gqs = GR[0].qs.map((q, i) => Object.assign({}, q, { k: 'tense:' + i }));
 const gs = L.newSession(gqs.map(q => q.k)); gs.questions = Object.fromEntries(gqs.map(q => [q.k, q]));
 assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
-// Weak words in reviews
-{ const WP = {}, r0 = path.find(x => x.id === 'r0'), BYK = Object.fromEntries(W.map(w => [L.key(w), w]));
-  r0.words.forEach(w => L.grade(WP, w, true, 1)); L.grade(WP, r0.words[0], false, 1); // weak inside range
+// Weak words in a word set (helpers stay for backups)
+{ const WP = {}, range = W.slice(0, 20), BYK = Object.fromEntries(W.map(w => [L.key(w), w]));
+  range.forEach(w => L.grade(WP, w, true, 1)); L.grade(WP, range[0], false, 1); // weak inside range
   const outside = W.slice(200, 240); outside.forEach(w => L.grade(WP, w, false, 1)); // 40 weak outside range (>30)
   assert.strictEqual(L.allWeak(WP, W).length, 41); assert.strictEqual(L.weakWords(WP, W).length, 41);
-  const rw = L.withWeak(r0.words, WP, W); assert.strictEqual(rw.length, 60); assert.strictEqual(new Set(rw.map(L.key)).size, 60);
+  const rw = L.withWeak(range, WP, W); assert.strictEqual(rw.length, 60); assert.strictEqual(new Set(rw.map(L.key)).size, 60);
   assert(outside.every(w => rw.includes(w)));
   const rs = L.newSession(rw.map(L.key)); L.answerSession(rs, true); const saved = JSON.parse(JSON.stringify(rs));
   L.grade(WP, W[300], false, 2); // new weak word after start: snapshot unchanged
-  const snap = L.resumeSnapshot(saved, r0.words, BYK); assert.strictEqual(snap.length, 60); assert(!snap.includes(W[300]));
-  assert.strictEqual(L.resumeSnapshot(L.newSession(['abate']), r0.words, BYK), null); // doesn't cover range -> fresh
+  const snap = L.resumeSnapshot(saved, range, BYK); assert.strictEqual(snap.length, 60); assert(!snap.includes(W[300]));
+  assert.strictEqual(L.resumeSnapshot(L.newSession(['abate']), range, BYK), null); // doesn't cover range -> fresh
   const q = L.buildQuestion({ type: 'review', words: snap, pool: snap }, L.key(outside[0]), 0, BYK); assert(q.options.every(o => snap.includes(o)));
   // daily: today's weak words added; passed day not relocked
   const DG2 = L.newGate(), D1 = Date.UTC(2026, 10, 9, 20); const DPp = { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } };
@@ -283,7 +278,7 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
 { const BYK = Object.fromEntries(W.map(w => [L.key(w), w])), first40 = new Set(W.slice(0, 40).map(L.key));
   const groups = [['Acceptable', 'Adequate', 'Appropriate'], ['Adapt', 'Adjust', 'Accommodate'], ['Aggressive', 'Antagonistic'], ['Abate', 'Ameliorate']];
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const stages = path.filter(x => ['u0', 'u1', 'u2', 'u3', 'r0', 'r2'].includes(x.id)); assert.strictEqual(stages.length, 6);
+  const stages = path.filter(x => ['u0', 'u1', 'u2', 'u3', 'pr0', 'pr2'].includes(x.id)); assert.strictEqual(stages.length, 6);
   let n = 0;
   for (let run = 0; run < 300; run++) for (const st of stages) {
     const S = L.newSession(st.words.map(L.key), rnd);
@@ -324,19 +319,18 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   ['u0', 'u1', 'r0', 'u2'].forEach(id => L.recordAttempt(old, id, 10, 0));
   const p2 = L.makePath(U);
   assert(!old.passed.pr0);
-  const iU2 = p2.findIndex(x => x.id === 'u2'), iPr0 = p2.findIndex(x => x.id === 'pr0'), iR0 = p2.findIndex(x => x.id === 'r0');
-  assert(L.isUnlocked(p2, iU2, old)); // unit 3 stays open even before migration
-  assert(!L.isUnlocked(p2, iR0, old)); // cumulative would look locked until grant
-  assert(L.migratePairUnlocks(p2, old));
-  assert(old.passed.pr0); assert(L.isUnlocked(p2, iR0, old)); assert(L.isUnlocked(p2, iU2, old));
-  assert(!L.migratePairUnlocks(p2, old)); // idempotent
-  // already-past pair review is available to retake; later units stay unlocked
+  const iU2 = p2.findIndex(x => x.id === 'u2'), iPr0 = p2.findIndex(x => x.id === 'pr0');
+  assert.strictEqual(p2.findIndex(x => x.id === 'r0'), -1); // cumulative reviews are gone
+  assert(!L.isUnlocked(p2, iU2, old)); // unit 3 now depends on the pair until migration
+  assert(L.migratePassUnlocks(old, p2)); // passed r0 grants pr0
+  assert(old.passed.pr0); assert(L.isUnlocked(p2, iU2, old));
+  assert(!L.migratePassUnlocks(old, p2)); // idempotent
   assert(L.isUnlocked(p2, iPr0, old));
-  // user who finished only the two units is not auto-passed; the new review is required
+  // user who finished only the two units is not auto-passed; the pair review is required
   const mid = L.newGate(); L.recordAttempt(mid, 'u0', 10, 0); L.recordAttempt(mid, 'u1', 10, 0);
   assert(!L.migratePairUnlocks(p2, mid)); assert(!mid.passed.pr0);
-  assert(L.isUnlocked(p2, iPr0, mid)); assert(!L.isUnlocked(p2, iR0, mid));
-  L.recordAttempt(mid, 'pr0', 20, 0); assert(L.isUnlocked(p2, iR0, mid));
+  assert(L.isUnlocked(p2, iPr0, mid)); assert(!L.isUnlocked(p2, iU2, mid));
+  L.recordAttempt(mid, 'pr0', 20, 0); assert(L.isUnlocked(p2, iU2, mid));
   // user already at the final: every pair review is granted
   const done = L.newGate(); done.passed.final = 1;
   assert(L.migratePairUnlocks(p2, done));
@@ -344,6 +338,13 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   // import of an older backup still returns the raw passed map; the app migrates after
   const imported = L.importData(L.exportData({}, old));
   assert(imported.gate.passed.pr0);
+  // a saved 90% best score is now a pass
+  const almost = L.newGate(); almost.best.u0 = 90;
+  assert(L.migratePassUnlocks(almost, p2)); assert(almost.passed.u0); assert(L.isUnlocked(p2, 1, almost));
+  const low = L.newGate(); low.best.u0 = 80;
+  assert(!L.migratePassUnlocks(low, p2)); assert(!low.passed.u0);
+  const gAlmost = { gbest: { tense: 92 }, passed: {} };
+  assert(L.migrateGrammarUnlocks(gAlmost)); assert(gAlmost.passed.tense);
 }
 
 // Optional Practice words: distractors come from the same unit; helpers stay available for old backups
@@ -541,16 +542,16 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   assert(L.recordDaily(G, G.daily.day, 1, 0, 1).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G));
   assert(!L.recordDaily(G, G.daily.day, 5, 1, 2).perfect); assert(G.daily.part1); assert(L.dailyBlocks(G)); // 80% is not enough
   assert(L.recordDaily(G, G.daily.day, 5, 0, 2).perfect); assert(!L.dailyBlocks(G));
-  // 90% or higher on each part is enough; below 90% is not; path unlocks stay at 100%
-  assert.strictEqual(L.DAILY_PASS, 90);
+  // 90% or higher on each part is enough; below 90% is not; path unlocks also use 90%
+  assert.strictEqual(L.DAILY_PASS, 90); assert.strictEqual(L.PASS, 90);
   const G90 = L.newGate(); L.ensureDaily(G90, { abate: { stage: 0, due: 0, right: 1, wrong: 0, lapses: 0 } }, Date.UTC(2026, 10, 11, 20));
   const r90 = L.recordDaily(G90, G90.daily.day, 10, 1, 1); assert.strictEqual(r90.pct, 90); assert(r90.perfect); assert(G90.daily.part1); assert(L.dailyBlocks(G90));
   assert(!L.recordDaily(G90, G90.daily.day, 10, 2, 1).perfect); assert(!G90.daily.part1); // 80%
   assert(L.recordDaily(G90, G90.daily.day, 10, 1, 1).perfect);
   assert(!L.recordDaily(G90, G90.daily.day, 10, 2, 2).perfect); assert(G90.daily.part1); assert(L.dailyBlocks(G90));
   assert(L.recordDaily(G90, G90.daily.day, 10, 1, 2).perfect); assert(!L.dailyBlocks(G90));
-  const GA = L.newGate(); L.recordAttempt(GA, 'u0', 10, 1); assert(!GA.passed.u0); // units still need 100%
-  L.recordAttempt(GA, 'u0', 10, 0); assert(GA.passed.u0);
+  const GA = L.newGate(); L.recordAttempt(GA, 'u0', 10, 2); assert(!GA.passed.u0); // 80% is not enough
+  L.recordAttempt(GA, 'u0', 10, 1); assert(GA.passed.u0); // 90% passes a unit
   // cloze questions: options from pool, one correct, no confusable, form matches blank
   const pool = W.slice(0, 20);
   for (const w of pool) {
