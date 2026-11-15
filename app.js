@@ -34,6 +34,11 @@ const soundBtn = () => `<button class="ghost" id="snd" aria-pressed="${soundOn}"
 document.addEventListener('click', e => { if (e.target && e.target.id === 'snd') { soundOn = !soundOn; localStorage.setItem(SNDKEY, soundOn ? 'on' : 'off'); e.target.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); e.target.setAttribute('aria-pressed', soundOn); } });
 const RKEY = 'satGrammar.v1'; let gram = Object.assign({ passed: {}, resume: {} }, L.migrateGrammar(JSON.parse(localStorage.getItem(RKEY) || '{}'))); const saveGram = () => localStorage.setItem(RKEY, JSON.stringify(gram));
 if (L.migrateGrammarUnlocks(gram)) saveGram();
+const EKEY = 'satVocabExtra.v1';
+let extra = L.normalizeExtra((() => { try { return JSON.parse(localStorage.getItem(EKEY) || 'null'); } catch (e) { return null; } })());
+const saveExtra = () => { try { localStorage.setItem(EKEY, JSON.stringify(extra)); } catch (e) {} };
+const EXTRA = (typeof EXTRA_WORDS !== 'undefined' && Array.isArray(EXTRA_WORDS)) ? EXTRA_WORDS : [];
+const BYEXTRA = Object.fromEntries(EXTRA.map(w => [L.key(w), w]));
 const FKEY = 'satVocabProfile.v1';
 let profile = L.newProfile();
 try { const raw = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (raw) profile = L.sanitizeProfile(raw); } catch (e) {}
@@ -117,8 +122,8 @@ const startRecall = () => {
   if (!words.length) return dailyView();
   quiz(words, 'Recent Words Recall', false, words, { type: 'recall', id: 'recall', words });
 };
-const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${(L.dailyBlocks(gate) || L.grammarDailyBlocks(gram)) ? ' (to do)' : ''}</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button><button class="${cur === 'profile' ? '' : 'ghost'}" id="tabProf">Profile</button>${soundBtn()}</nav>`;
-const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabGram').onclick = grammarView; $('#tabProf').onclick = profileView; };
+const tabs = cur => `<nav class="tabs row" style="margin-bottom:1rem"><button class="${cur === 'path' ? '' : 'ghost'}" id="tabPath">Path</button><button class="${cur === 'daily' ? '' : 'ghost'}" id="tabDaily">Daily Review${(L.dailyBlocks(gate) || L.grammarDailyBlocks(gram)) ? ' (to do)' : ''}</button><button class="${cur === 'extra' ? '' : 'ghost'}" id="tabExtra">Extra Words</button><button class="${cur === 'grammar' ? '' : 'ghost'}" id="tabGram">Grammar Rules</button><button class="${cur === 'profile' ? '' : 'ghost'}" id="tabProf">Profile</button>${soundBtn()}</nav>`;
+const wireTabs = () => { $('#tabPath').onclick = home; $('#tabDaily').onclick = dailyView; $('#tabExtra').onclick = extraView; $('#tabGram').onclick = grammarView; $('#tabProf').onclick = profileView; };
 // Grammar Rules tab: a gated path separate from the vocab path and vocab Daily Review.
 const gLabel = it => it.type === 'rule' ? it.topic.title : it.type === 'exam' ? 'Part 1 Exam' : it.type === 'review' ? 'Part 2 Review ' + (Number(String(it.id).replace('g-rev', '')) + 1) : 'Grammar Final Exam';
 const gSub = it => {
@@ -849,16 +854,182 @@ function done(title, total, m, stage, result) {
   if ($('#again')) $('#again').onclick = () => stage.type === 'daily' ? startDaily() : stage.type === 'daily2' ? startDailyPart2() : stage.type === 'recall' ? startRecall() : isPractice ? startPractice(stage.words, stage.id, { mode: stage.mode, count: stage.count }) : startStage(stage, idx);
 }
 
+
+function extraView() {
+  stopTrack(); onHome = false;
+  const st = L.extraStats(extra, EXTRA);
+  const resume = extra.resume && L.validExtraResume(extra.resume, EXTRA);
+  const left = extra.resume && extra.resume.queue ? extra.resume.queue.filter(q => q.kind === 'q' && !q.retry).length + extra.resume.queue.filter(q => q.kind === 'q' && q.retry).length : 0;
+  const size = L.extraSize(extra.size);
+  const resumeNote = resume ? `<p class="fb ok">You have a practice session in progress (${extra.resume.done} of ${extra.resume.total} first-try answers so far). You can pick it up where you left off.</p>` : '';
+  app.innerHTML = tabs('extra') + `<section class="card">
+    <div class="row" style="margin-bottom:.7rem">${buddySvg('idle', 64)}<div>
+      <h2 style="margin-top:0">Extra Words</h2>
+      <p class="muted" style="margin:0">A larger, unofficial list for light daily practice. Nothing here unlocks or blocks your Path, Daily Review, or Grammar. Miss a word and it simply comes back later — no score to pass.</p>
+    </div></div>
+    <div class="stats">
+      <div class="stat"><b>${st.seen}</b> words seen</div>
+      <div class="stat"><b>${st.known}</b> words known</div>
+      <div class="stat"><b>${st.freqSeen}</b> of ${st.freq} top-frequency seen</div>
+      <div class="stat"><b>${st.sessions}</b> session${st.sessions === 1 ? '' : 's'} finished</div>
+    </div>
+    <p>${st.total.toLocaleString()} words in this list. Top-frequency words (from a well-known SAT frequency compilation) and words you have missed or not seen yet show up more often.</p>
+    ${resumeNote}
+    <div class="row" style="margin:1rem 0 .4rem;align-items:center">
+      <label for="extraN">Words this session</label>
+      <input type="number" id="extraN" min="${L.EXTRA_MIN}" max="${L.EXTRA_MAX}" value="${size}" aria-label="Session size">
+      <span class="muted">${L.EXTRA_MIN}–${L.EXTRA_MAX}, default ${L.EXTRA_DEFAULT}</span>
+    </div>
+    <div class="row">
+      ${resume ? '<button id="exCont">Continue session</button>' : ''}
+      <button class="${resume ? 'alt' : ''}" id="exGo">Start a new session</button>
+      <button class="ghost" id="exBrowse">Browse the list</button>
+    </div>
+  </section>
+  <section class="card"><p class="muted" style="margin:0">This list combines the headwords from SparkNotes’ “1000 Most Common SAT Words” with words from the SesameWords Top Frequency SAT 450 that were not already on that list. Definitions are from Princeton WordNet (plus a few original definitions) and are not copied from those sources. Example sentences are original or from WordNet.</p></section>`;
+  wireTabs();
+  const readSize = () => { extra.size = L.extraSize($('#extraN').value); saveExtra(); return extra.size; };
+  $('#extraN').onchange = readSize;
+  if ($('#exCont')) $('#exCont').onclick = () => startExtra(true);
+  $('#exGo').onclick = () => {
+    if (resume && !confirm('Start a new session? The saved one will be replaced. Your word stats are kept.')) return;
+    extra.size = readSize(); extra.resume = null; saveExtra(); startExtra(false);
+  };
+  $('#exBrowse').onclick = extraBrowse;
+}
+
+function extraBrowse() {
+  stopTrack(); onHome = false;
+  const q0 = '';
+  const rows = EXTRA.map(w => `<tr data-k="${esc(L.key(w))}" data-t="${esc((w.w + ' ' + w.d + ' ' + (w.e || '')).toLowerCase())}"><td><b>${esc(w.w)}</b> <span class="pos">${esc(w.p)}</span>${w.freq ? '<span class="freq-tag">Top frequency</span>' : ''}</td><td>${esc(w.d)}${w.e ? `<div class="ex">“${L.markExample(w.e, w)}”</div>` : ''}</td></tr>`).join('');
+  app.innerHTML = tabs('extra') + `<section class="card"><h2>Browse Extra Words</h2>
+    <p class="muted">Look up any word in the list. This does not change your practice stats.</p>
+    <input type="search" id="exq" placeholder="Search words or meanings" aria-label="Search the extra word list" autocomplete="off">
+    <div class="browse-list"><table><tr><th>Word</th><th>Meaning</th></tr>${rows}</table></div>
+    <p><button id="exBack">Back to Extra Words</button></p></section>`;
+  wireTabs();
+  const apply = () => {
+    const q = ($('#exq').value || '').trim().toLowerCase();
+    app.querySelectorAll('.browse-list tr[data-k]').forEach(tr => { tr.hidden = !!(q && !tr.dataset.t.includes(q)); });
+  };
+  $('#exq').oninput = apply;
+  $('#exBack').onclick = extraView;
+  $('#exq').focus();
+}
+
+function startExtra(resume) {
+  let words, s;
+  if (resume && extra.resume && L.validExtraResume(extra.resume, EXTRA)) {
+    s = extra.resume;
+    words = s.keys.map(k => BYEXTRA[k]).filter(Boolean);
+    if (words.length !== s.keys.length) { extra.resume = null; saveExtra(); return extraView(); }
+  } else {
+    words = L.pickExtraWords(EXTRA, extra, extra.size);
+    if (!words.length) return extraView();
+    s = L.newExtraSession(words);
+  }
+  extraQuiz(words, s);
+}
+
+function extraQuiz(words, s) {
+  startTrack();
+  const pool = EXTRA;
+  const persist = () => { extra.resume = s; saveExtra(); };
+  const restart = () => {
+    if (!confirm('Start this session over from the beginning? Your answers in this attempt will be cleared. Words seen and words known are kept.')) return;
+    clearAdvance();
+    const same = s.keys.map(k => BYEXTRA[k]).filter(Boolean);
+    extra.resume = null; saveExtra();
+    extraQuiz(same, L.newExtraSession(same));
+  };
+  persist();
+  const next = () => {
+    clearAdvance();
+    if (!s.queue.length) {
+      extra.resume = null;
+      extra.sessions = (extra.sessions || 0) + 1;
+      saveExtra();
+      stopTrack();
+      const missed = s.missed.map(k => BYEXTRA[k]).filter(Boolean);
+      const n = s.total, right = n - missed.length;
+      app.innerHTML = `<section class="card"><h2>Extra Words — session finished</h2>
+        <div class="row" style="margin-bottom:.7rem">${buddySvg('happy', 64)}<p>Nice work. You reviewed <b>${n}</b> word${n === 1 ? '' : 's'} and got <b>${right}</b> right on the first try. Missed words will simply show up more often next time — there is no score to pass, and this does not affect your Path.</p></div>
+        ${missed.length ? `<p>Worth another look:</p><ul>${missed.map(w => `<li><b>${esc(w.w)}</b> — ${esc(w.d)}</li>`).join('')}</ul>` : '<p class="fb ok">You got every first-try question in this set.</p>'}
+        <div class="row"><button class="alt" id="again">Another session</button><button id="h">Back to Extra Words</button></div></section>`;
+      $('#h').onclick = extraView;
+      $('#again').onclick = () => { extra.resume = null; saveExtra(); startExtra(false); };
+      return;
+    }
+    const item = s.queue[0];
+    const w = BYEXTRA[item.k];
+    if (!w) { s.queue.shift(); return next(); }
+    if (item.kind === 'card') {
+      persist();
+      app.innerHTML = `<section class="card extra-card"><div class="row" style="justify-content:space-between"><p class="muted">Extra Words · ${s.done}/${s.total} first-try answers${item.retry ? ' · coming back' : ''}</p>
+        <div class="row"><span id="buddy">${buddySvg('idle', 40)}</span>${soundBtn()}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">Save &amp; exit</button></div></div>
+        <p class="muted">${item.retry ? 'A quick look again before the question returns.' : 'Read the meaning and the sentence, then you will get a short question.'}</p>
+        <div class="word">${esc(w.w)}</div><span class="pos">${esc(w.p)}</span>${w.freq ? '<span class="freq-tag">Top frequency</span>' : ''}
+        <p>${esc(w.d)}</p>
+        ${w.e ? `<p class="ex">“${L.markExample(w.e, w)}”</p>` : ''}
+        <p style="margin:.8rem 0 0"><button id="go">Continue</button></p></section>`;
+      $('#rs').onclick = restart;
+      $('#pause').onclick = () => { persist(); extraView(); };
+      const go = () => { L.answerExtraSession(s, true); s.cur = null; persist(); next(); };
+      $('#go').onclick = go; $('#go').focus(); armAdvance(go);
+      return;
+    }
+    let q;
+    if (!s.cur || s.cur.k !== item.k || s.cur.kind !== 'q') {
+      q = L.buildExtraQuestion(w, item.qtype, pool);
+      s.cur = { k: item.k, kind: 'q', q };
+    } else q = s.cur.q;
+    persist();
+    const type = q.type, opts = q.options;
+    const rawOf = o => type === 'cloze' ? o.w : o;
+    let body;
+    if (type === 'cloze') body = `<p class="muted">Choose the word that best completes the sentence.</p>
+      <p class="word" style="font-size:1.15rem;font-weight:500">${esc(q.prompt).replace('_____', '______')}</p>
+      <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(o.fill)}</button>`).join('')}</div>`;
+    else body = `<p class="muted">${type === 'def2word' ? 'Which word means:' : 'What does this word mean?'}</p>
+      ${type === 'def2word' ? `<p><b>${esc(w.d)}</b> <span class="pos">(${esc(w.p)})</span></p>` : `<div class="word">${esc(w.w)}</div>${w.freq ? '<span class="freq-tag">Top frequency</span>' : ''}`}
+      <div class="opts">${opts.map((o, i) => `<button data-i="${i}">${esc(type === 'def2word' ? o.w : o.d)}</button>`).join('')}</div>`;
+    app.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><p class="muted">Extra Words · ${s.done}/${s.total} first-try answers · ${s.missed.length} missed${item.retry ? ' · coming back' : ''}</p>
+      <div class="row"><span id="buddy">${buddySvg('idle', 40)}</span>${soundBtn()}<button class="ghost" id="rs">Restart</button><button class="ghost" id="pause">Save &amp; exit</button></div></div>${body}<div id="fb"></div></section>`;
+    $('#rs').onclick = restart;
+    $('#pause').onclick = () => { persist(); extraView(); };
+    let answered = false;
+    const answer = (ok, chosen) => {
+      if (answered) return; answered = true; if (ok) ding();
+      if ($('#buddy')) $('#buddy').innerHTML = buddySvg(ok ? 'happy' : 'sad', 40);
+      if (!item.retry) L.recordExtra(extra, w, ok);
+      L.answerExtraSession(s, ok);
+      s.cur = null; persist();
+      const filled = type === 'cloze' ? `<br><span class="ex">“${L.markExample(q.prompt.replace('_____', q.fill), w)}”</span>` : (w.e ? `<br><span class="ex">“${L.markExample(w.e, w)}”</span>` : '');
+      const msg = ok ? `That’s right. <b>${esc(w.w)}</b>: ${esc(w.d)}` : `<b>Not quite.</b> ${esc(L.explainWrong(type, w, chosen, '', EXTRA))} <br><span class="muted">This one will come back later — no harm done.</span>`;
+      $('#fb').innerHTML = `<div class="fb ${ok ? 'ok' : 'no'}">${msg}${filled}<p style="margin:.6rem 0 0"><button id="go">Continue</button></p></div>`;
+      app.querySelectorAll('.opts button').forEach(b => b.disabled = true);
+      $('#go').focus(); $('#go').onclick = next; armAdvance(next);
+    };
+    app.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
+      const chosen = rawOf(opts[+b.dataset.i]); const ok = chosen === w;
+      b.classList.add(ok ? 'ok' : 'no');
+      const ci = opts.findIndex(o => rawOf(o) === w); if (ci >= 0) app.querySelectorAll('.opts button')[ci].classList.add('ok');
+      answer(ok, chosen);
+    });
+  };
+  next();
+}
+
 function backup() {
   stopTrack();
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, your name, study buddy, goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, Extra Words practice stats, your name, study buddy, goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
-  $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));
+  $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile, extra); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
     $('#msg').textContent = skipped ? 'Backup downloaded. Your photo was skipped because it is large; it is still saved in this browser.' : ''; };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePassUnlocks(gate, PATH); L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); L.migrateGrammarUnlocks(gram); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePassUnlocks(gate, PATH); L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); L.migrateGrammarUnlocks(gram); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } if (r.extra) { extra = L.normalizeExtra(r.extra); saveExtra(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests, Extra Words stats and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 function boot() { profile.survey ? home() : surveyView(false); }

@@ -647,3 +647,66 @@ assert(L.validGramResume(gs, 12)); assert(!L.validGramResume(gs, 11));
   assert.strictEqual(eq2, 384);
 }
 console.log('all tests passed');
+
+
+// Extra Words: light, ungated practice on a separate list
+const { EXTRA_WORDS: EW, EXTRA_META: EM } = require('./extra.js');
+assert.strictEqual(EW.length, 1308);
+assert.strictEqual(new Set(EW.map(L.key)).size, 1308);
+assert.strictEqual(EW.filter(w => w.freq).length, 449);
+assert.strictEqual(EM.total, 1308);
+assert.strictEqual(EM.topFrequency, 449);
+EW.forEach(w => {
+  assert(w.w && w.d && w.p && w.e, w.w);
+  assert(L.extraClozeOf(w), 'no cloze form in sentence: ' + w.w);
+});
+assert.strictEqual(L.extraSize(0), 5);
+assert.strictEqual(L.extraSize(99), 20);
+assert.strictEqual(L.extraSize('12'), 12);
+assert.strictEqual(L.extraSize(undefined), 12);
+const rng = seed => { let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; };
+{ const empty = L.newExtra();
+  let freqHits = 0, trials = 400;
+  for (let i = 0; i < trials; i++) {
+    const picked = L.pickExtraWords(EW, empty, 10, rng(1000 + i));
+    assert.strictEqual(picked.length, 10);
+    assert.strictEqual(new Set(picked.map(L.key)).size, 10);
+    freqHits += picked.filter(w => w.freq).length;
+  }
+  const avg = freqHits / trials;
+  assert(avg > 4.2, 'top-frequency words should be over-sampled, got ' + avg);
+}
+{ const sample = EW.slice(0, 8);
+  const sess = L.newExtraSession(sample, () => 0.4);
+  assert.strictEqual(sess.total, 8); assert.strictEqual(sess.queue.length, 16);
+  assert.strictEqual(sess.queue[0].kind, 'card'); assert.strictEqual(sess.queue[1].kind, 'q');
+  assert(L.validExtraResume(sess, EW));
+  assert(!L.answerExtraSession(sess, true)); // study card
+  assert.strictEqual(sess.queue[0].kind, 'q');
+  assert(!L.answerExtraSession(sess, false)); // miss
+  assert(sess.missed.includes(L.key(sample[0])));
+  assert.strictEqual(sess.done, 0);
+  assert(sess.queue.some(q => q.k === L.key(sample[0]) && q.retry && q.kind === 'q'));
+  assert(L.validExtraResume(sess, EW));
+  const q1 = L.buildExtraQuestion(sample[0], 'w2d', EW, () => 0.3);
+  assert.strictEqual(q1.type, 'word2def'); assert.strictEqual(q1.options.length, 4);
+  const q2 = L.buildExtraQuestion(sample[0], 'd2w', EW, () => 0.3);
+  assert.strictEqual(q2.type, 'def2word');
+  const q3 = L.buildExtraQuestion(sample[0], 'cloze', EW, () => 0.3);
+  assert.strictEqual(q3.type, 'cloze'); assert(q3.prompt.includes('_____'));
+}
+{ const ex = L.newExtra(), w0 = EW[0], k0 = L.key(w0);
+  L.recordExtra(ex, w0, true, 1); L.recordExtra(ex, w0, true, 2);
+  assert(L.extraKnown(ex.words[k0]));
+  const st = L.extraStats(ex, EW);
+  assert.strictEqual(st.seen, 1); assert.strictEqual(st.known, 1);
+  const G0 = L.newGate();
+  const raw = L.exportData({}, G0, {}, null, ex);
+  const imp = L.importData(raw);
+  assert.strictEqual(imp.extra.words[k0].right, 2);
+  assert.deepStrictEqual(imp.gate.passed, {});
+  const oldBk = L.importData(L.exportData({}, G0));
+  assert.strictEqual(oldBk.extra, null); // older backups have no extra field
+  const keepProg = L.importData(L.exportData(P, G, {}, null, ex));
+  assert.deepStrictEqual(keepProg.progress, P); // path progress is left intact
+}

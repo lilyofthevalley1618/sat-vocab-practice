@@ -707,9 +707,165 @@ function advanceClickOk(el) {
   if (tag === 'a') return false;
   return true;
 }
-function exportData(prog, gate, grammar, profile) {
+
+// Extra Words: light, ungated daily practice on a larger list. No pass score, no unlocks.
+const EXTRA_MIN = 5, EXTRA_MAX = 20, EXTRA_DEFAULT = 12, EXTRA_KNOWN_STREAK = 2;
+function extraSize(n) {
+  n = Math.round(Number(n));
+  if (!Number.isFinite(n)) n = EXTRA_DEFAULT;
+  return Math.max(EXTRA_MIN, Math.min(EXTRA_MAX, n));
+}
+function newExtra() { return { words: {}, resume: null, size: EXTRA_DEFAULT, sessions: 0 }; }
+function normalizeExtra(raw) {
+  const e = newExtra();
+  if (!raw || typeof raw !== 'object') return e;
+  if (raw.words && typeof raw.words === 'object') {
+    for (const [k, rec] of Object.entries(raw.words)) {
+      if (!k || !rec || typeof rec !== 'object') continue;
+      e.words[k] = {
+        seen: Math.max(0, Math.round(Number(rec.seen) || 0)),
+        right: Math.max(0, Math.round(Number(rec.right) || 0)),
+        wrong: Math.max(0, Math.round(Number(rec.wrong) || 0)),
+        streak: Math.max(0, Math.round(Number(rec.streak) || 0)),
+        last: Number(rec.last) || 0
+      };
+    }
+  }
+  e.size = extraSize(raw.size);
+  e.sessions = Math.max(0, Math.round(Number(raw.sessions) || 0));
+  if (raw.resume && typeof raw.resume === 'object') e.resume = raw.resume;
+  return e;
+}
+function extraWeight(word, rec) {
+  let w = word && word.freq ? 2.5 : 1;
+  if (!rec || !rec.seen) w *= 2.3;
+  else {
+    if ((rec.wrong || 0) > (rec.right || 0)) w *= 2.2;
+    else if ((rec.streak || 0) <= 0 && rec.wrong) w *= 1.7;
+    if ((rec.streak || 0) >= EXTRA_KNOWN_STREAK) w *= 0.25;
+    else if ((rec.right || 0) >= 3 && rec.right > (rec.wrong || 0)) w *= 0.45;
+  }
+  return w;
+}
+function pickExtraWords(list, extra, n, rnd = Math.random) {
+  n = Math.min(extraSize(n), list.length);
+  const recs = (extra && extra.words) || {};
+  const scored = list.map(word => {
+    const weight = Math.max(1e-6, extraWeight(word, recs[key(word)]));
+    const u = Math.max(1e-12, rnd());
+    return { word, score: Math.pow(u, 1 / weight) };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, n).map(x => x.word);
+}
+function extraQuestionTypes(n, rnd = Math.random) {
+  const cycle = ['w2d', 'd2w', 'cloze'];
+  return shuffle(Array.from({ length: n }, (_, i) => cycle[i % 3]), rnd);
+}
+function newExtraSession(words, rnd = Math.random) {
+  const keys = words.map(key);
+  const types = extraQuestionTypes(keys.length, rnd);
+  const queue = [];
+  keys.forEach((k, i) => {
+    queue.push({ k, kind: 'card', retry: false });
+    queue.push({ k, kind: 'q', qtype: types[i], retry: false });
+  });
+  return { keys, queue, total: keys.length, done: 0, missed: [], seen: [], size: keys.length, cur: null };
+}
+function validExtraResume(s, list) {
+  if (!s || !Array.isArray(s.queue) || !Array.isArray(s.keys) || !Array.isArray(s.missed) || !Array.isArray(s.seen)) return false;
+  if (!Number.isFinite(s.total) || s.total !== s.keys.length) return false;
+  if (s.size !== s.keys.length || s.keys.length < EXTRA_MIN || s.keys.length > EXTRA_MAX) return false;
+  const ks = new Set(list.map(key));
+  if (!s.keys.every(k => ks.has(k))) return false;
+  if (!s.missed.every(k => ks.has(k)) || !s.seen.every(k => ks.has(k))) return false;
+  return s.queue.every(q => q && ks.has(q.k) && (q.kind === 'card' || (q.kind === 'q' && (q.qtype === 'w2d' || q.qtype === 'd2w' || q.qtype === 'cloze'))));
+}
+function answerExtraSession(s, correct) {
+  const item = s.queue.shift();
+  if (!item) return true;
+  if (item.kind === 'card') return s.queue.length === 0;
+  if (!item.retry && !s.seen.includes(item.k)) {
+    s.seen.push(item.k);
+    if (!correct) s.missed.push(item.k);
+    else s.done++;
+  }
+  if (!correct) {
+    const delay = Math.min(4, s.queue.length);
+    s.queue.splice(delay, 0, { k: item.k, kind: 'card', retry: true }, { k: item.k, kind: 'q', qtype: item.qtype, retry: true });
+  }
+  return s.queue.length === 0;
+}
+function recordExtra(extra, word, correct, now = Date.now()) {
+  const k = key(word);
+  const rec = extra.words[k] || { seen: 0, right: 0, wrong: 0, streak: 0, last: 0 };
+  rec.seen += 1;
+  if (correct) { rec.right += 1; rec.streak = (rec.streak || 0) + 1; }
+  else { rec.wrong += 1; rec.streak = 0; }
+  rec.last = now;
+  extra.words[k] = rec;
+  return rec;
+}
+function extraKnown(rec) {
+  return !!(rec && ((rec.streak || 0) >= EXTRA_KNOWN_STREAK || ((rec.right || 0) >= 3 && rec.right > (rec.wrong || 0) && (rec.streak || 0) > 0)));
+}
+function extraStats(extra, list) {
+  const recs = (extra && extra.words) || {};
+  const seen = list.filter(w => recs[key(w)] && recs[key(w)].seen > 0);
+  const known = seen.filter(w => extraKnown(recs[key(w)]));
+  const freq = list.filter(w => w.freq);
+  const freqSeen = freq.filter(w => recs[key(w)] && recs[key(w)].seen > 0);
+  const freqKnown = freqSeen.filter(w => extraKnown(recs[key(w)]));
+  return { total: list.length, seen: seen.length, known: known.length, freq: freq.length, freqSeen: freqSeen.length, freqKnown: freqKnown.length, sessions: (extra && extra.sessions) || 0 };
+}
+function extraFillForms(word) {
+  const h = word.w || word;
+  const forms = new Set([h, String(h).toLowerCase()]);
+  if (word.fill) forms.add(word.fill);
+  ['past', 'ing', 's'].forEach(f => {
+    forms.add(inflectForm(h, f));
+    forms.add(inflectForm(String(h).toLowerCase(), f));
+  });
+  return [...forms].filter(Boolean).sort((a, b) => b.length - a.length);
+}
+function extraClozeOf(word) {
+  const s = word && word.e;
+  if (!s) return null;
+  for (const f of extraFillForms(word)) {
+    const re = new RegExp('\\b' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    const m = s.match(re);
+    if (m) return { prompt: s.replace(re, '_____'), fill: m[0] };
+  }
+  return null;
+}
+function buildExtraCloze(word, pool, rnd = Math.random) {
+  const picked = extraClozeOf(word);
+  if (!picked) return null;
+  const raw = choices(word, pool, 4, rnd);
+  const options = raw.map(o => ({ w: o, fill: o === word ? picked.fill : matchFill(o, picked.fill, word) }));
+  const seen = new Set(); const unique = [];
+  for (const o of options) {
+    const k = o.fill.toLowerCase();
+    if (seen.has(k) && o.w !== word) continue;
+    if (seen.has(k) && o.w === word) { const i = unique.findIndex(x => x.fill.toLowerCase() === k); if (i >= 0) unique.splice(i, 1); }
+    seen.add(k); unique.push(o);
+  }
+  return { w: word, type: 'cloze', prompt: picked.prompt, fill: picked.fill, options: unique };
+}
+function buildExtraQuestion(word, qtype, pool, rnd = Math.random) {
+  if (qtype === 'cloze') {
+    const q = buildExtraCloze(word, pool, rnd);
+    if (q) return q;
+    qtype = 'w2d';
+  }
+  if (qtype === 'd2w') return { w: word, type: 'def2word', options: choices(word, pool, 4, rnd) };
+  return { w: word, type: 'word2def', options: choices(word, pool, 4, rnd) };
+}
+
+function exportData(prog, gate, grammar, profile, extra) {
   const out = { app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} };
   if (profile) out.profile = sanitizeProfile(profile, true);
+  if (extra) out.extra = normalizeExtra(extra);
   return JSON.stringify(out);
 }
 function importData(text) {
@@ -736,7 +892,12 @@ function importData(text) {
     if (typeof o.profile !== 'object') throw new Error('Bad profile data');
     profile = sanitizeProfile(o.profile, false);
   }
-  return { progress: o.progress, gate, grammar, profile };
+  let extra = null;
+  if (o.extra != null) {
+    if (typeof o.extra !== 'object') throw new Error('Bad extra-words data');
+    extra = normalizeExtra(o.extra);
+  }
+  return { progress: o.progress, gate, grammar, profile, extra };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, migratePassUnlocks, migrateGrammarUnlocks, newGate, isUnlocked, recordAttempt, PASS, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, migratePassUnlocks, migrateGrammarUnlocks, newGate, isUnlocked, recordAttempt, PASS, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk, EXTRA_MIN, EXTRA_MAX, EXTRA_DEFAULT, EXTRA_KNOWN_STREAK, extraSize, newExtra, normalizeExtra, extraWeight, pickExtraWords, extraQuestionTypes, newExtraSession, validExtraResume, answerExtraSession, recordExtra, extraKnown, extraStats, extraFillForms, extraClozeOf, buildExtraCloze, buildExtraQuestion };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
