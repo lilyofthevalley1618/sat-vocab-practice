@@ -63,3 +63,8 @@ mark{background:#dfeaf5;color:inherit;border-radius:4px;padding:0 .15em;font-wei
 
 .buddy-upload-ph{width:88px;height:88px;border-radius:14px;border:2px dashed var(--blue-d);display:flex;align-items:center;justify-content:center;font-size:2rem;line-height:1;color:var(--blue-d);background:var(--beige)}
 .buddy-photo-preview{width:88px;height:88px;object-fit:cover;border-radius:12px;display:block}
+
+.prac-sets{margin:1rem 0 .2rem}
+.prac-set{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;width:100%;text-align:left;background:var(--card);color:var(--ink);border:2px solid var(--blue);border-radius:12px;padding:.65rem .8rem;margin:.4rem 0 0;font:inherit;cursor:pointer}
+.prac-set:hover{border-color:var(--blue-d)}
+.prac-set-words{font-weight:600}

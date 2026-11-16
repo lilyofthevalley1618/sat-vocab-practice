@@ -710,3 +710,43 @@ const rng = seed => { let s = seed >>> 0; return () => { s = (Math.imul(s, 16645
   const keepProg = L.importData(L.exportData(P, G, {}, null, ex));
   assert.deepStrictEqual(keepProg.progress, P); // path progress is left intact
 }
+
+
+// Practice-word history: auto-saved sets, newest first, same words merge formats
+assert.strictEqual(L.PRACTICE_SET_MAX, 10);
+{ const a = L.key(W[0]), b = L.key(W[1]), c = L.key(W[2]);
+  const ab = [a, b].slice().sort();
+  let hist = L.rememberPracticeSet([], [a, b], 'mc', 10);
+  assert.strictEqual(hist.length, 1);
+  assert.deepStrictEqual(hist[0].keys, ab);
+  assert.deepStrictEqual(hist[0].modes, ['mc']);
+  hist = L.rememberPracticeSet(hist, [b, a], 'type', 20); // same set, different format, any order
+  assert.strictEqual(hist.length, 1);
+  assert.deepStrictEqual(hist[0].modes, ['mc', 'type']);
+  assert.strictEqual(hist[0].at, 20);
+  assert.deepStrictEqual(hist[0].keys, ab);
+  hist = L.rememberPracticeSet(hist, [c], 'cloze', 30);
+  assert.strictEqual(hist.length, 2);
+  assert.deepStrictEqual(hist[0].keys, [c]); // newest first
+  assert.deepStrictEqual(hist[1].keys, ab);
+  let piled = [];
+  for (let i = 0; i < 12; i++) piled = L.rememberPracticeSet(piled, [L.key(W[i])], 'mc', i + 1);
+  assert.strictEqual(piled.length, 10);
+  assert.deepStrictEqual(piled[0].keys, [L.key(W[11])]);
+  assert.deepStrictEqual(piled[9].keys, [L.key(W[2])]); // oldest of the kept 10
+  const cleaned = L.normalizePracticeHistory([{ keys: [a, 'not-a-word', a], modes: ['mc', 'nope'], at: 1 }, { keys: [] }, null], new Set([a, b]));
+  assert.strictEqual(cleaned.length, 1);
+  assert.deepStrictEqual(cleaned[0].keys, [a]);
+  assert.deepStrictEqual(cleaned[0].modes, ['mc']);
+  const G0 = L.newGate();
+  const raw = L.exportData({}, G0, {}, null, null, { keys: [a], mode: 'type', count: 8, history: hist });
+  const imp = L.importData(raw);
+  assert.strictEqual(imp.practice.mode, 'type');
+  assert.strictEqual(imp.practice.count, 8);
+  assert.strictEqual(imp.practice.history.length, 2);
+  assert.deepStrictEqual(imp.practice.history[0].keys, [c]);
+  const oldBk = L.importData(L.exportData({}, G0));
+  assert.strictEqual(oldBk.practice, null); // older backups have no practice field
+  const keepProg = L.importData(L.exportData(P, G, {}, null, null, { keys: [a], mode: 'mc', history: hist }));
+  assert.deepStrictEqual(keepProg.progress, P);
+}

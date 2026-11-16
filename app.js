@@ -6,20 +6,27 @@ const save = () => localStorage.setItem(SKEY, JSON.stringify(prog));
 const GKEY = 'satVocabPath.v1', PATH = L.makePath(UNITS), BYKEY = Object.fromEntries(WORDS.map(w => [L.key(w), w]));
 const UNIT_OF = Object.fromEntries(WORDS.map(w => [L.key(w), L.unitWords(w, UNITS)]));
 const PKEY = 'satVocabPracticeSel.v1';
+function learnedPracticeKeys() {
+  return new Set(WORDS.filter(w => !L.isNew(prog, w)).map(L.key));
+}
+const PRACTICE_MODE_LABEL = { type: 'Free-response typing', cloze: 'Fill-in-the-blank', mc: 'Multiple choice' };
 function loadPracticePrefs() {
   try {
     const x = JSON.parse(localStorage.getItem(PKEY) || 'null');
-    let keys = [], mode = 'mc', count = null;
+    let keys = [], mode = 'mc', count = null, history = [];
     if (Array.isArray(x)) keys = x;
     else if (x && typeof x === 'object') {
       if (Array.isArray(x.keys)) keys = x.keys;
       mode = L.normalizePracticeMode(x.mode);
       const n = Number(x.count);
       if (Number.isFinite(n) && n >= 1) count = Math.min(500, Math.round(n));
+      history = x.history;
     }
-    keys = keys.filter(k => BYKEY[k] && !L.isNew(prog, BYKEY[k]));
-    return { keys, mode, count };
-  } catch (e) { return { keys: [], mode: 'mc', count: null }; }
+    const allow = learnedPracticeKeys();
+    keys = keys.filter(k => allow.has(k));
+    history = L.normalizePracticeHistory(history, allow);
+    return { keys, mode, count, history };
+  } catch (e) { return { keys: [], mode: 'mc', count: null, history: [] }; }
 }
 const savePracticePrefs = prefs => { try { localStorage.setItem(PKEY, JSON.stringify(prefs)); } catch (e) {} };
 let gate = Object.assign(L.newGate(), JSON.parse(localStorage.getItem(GKEY) || '{}'));
@@ -486,8 +493,8 @@ function practiceView() {
   const canResume = pausedWords && pausedWords.length && L.validPracticeResume(paused, pausedWords);
   const prefs = loadPracticePrefs();
   const selected = new Set(prefs.keys);
-  let q = '', mode = prefs.mode, countPref = prefs.count;
-  const persist = () => savePracticePrefs({ keys: [...selected], mode, count: countPref });
+  let q = '', mode = prefs.mode, countPref = prefs.count, history = prefs.history || [];
+  const persist = () => savePracticePrefs({ keys: [...selected], mode, count: countPref, history });
   const selCount = () => learned.filter(w => selected.has(L.key(w))).length;
   const paintChrome = () => {
     const n = selCount();
@@ -512,6 +519,15 @@ function practiceView() {
     const n = selCount();
     const qVal = n ? Math.max(n, countPref || n) : 1;
     const resume = canResume ? `<p class="fb ok">You have a practice session paused at ${paused.done}/${paused.total}. <button class="alt" id="pr">Resume</button></p>` : '';
+    const historyBlock = history.length ? `<div class="prac-sets"><p style="margin:1.1rem 0 .35rem"><b>Recent practice sets</b></p><p class="muted">Tap a set to select those words again, then choose a question type and how many questions.</p>${history.map((set, i) => {
+      const words = set.keys.map(k => BYKEY[k]).filter(Boolean);
+      const names = words.map(w => w.w);
+      const shown = names.slice(0, 10);
+      const extra = names.length - shown.length;
+      const label = shown.join(', ') + (extra > 0 ? ', and ' + extra + ' more' : '');
+      const used = set.modes.map(m => PRACTICE_MODE_LABEL[m] || m).join(', ');
+      return `<button type="button" class="prac-set" data-i="${i}"><span class="prac-set-words">${esc(label)}</span><span class="muted">Already practiced as: ${esc(used)}</span></button>`;
+    }).join('')}</div>` : '';
     const modeBtns = [['type', 'Free-response typing'], ['cloze', 'Fill-in-the-blank'], ['mc', 'Multiple choice']].map(([id, label]) =>
       `<label class="mode-opt"><input type="radio" name="pm" value="${id}" ${mode === id ? 'checked' : ''}> ${label}</label>`).join('');
     app.innerHTML = `<section class="card"><h2>Choose your practice words</h2>
@@ -521,6 +537,7 @@ function practiceView() {
         <button type="button" class="ghost" id="none">Select none</button>
         <button type="button" class="ghost" id="h">Back</button></div>
       <div class="pick-cols" id="plist">${visible.map(w => `<label class="pick-w"><input type="checkbox" value="${esc(L.key(w))}" ${selected.has(L.key(w)) ? 'checked' : ''}><span><b>${esc(w.w)}</b> <span class="pos">(${esc(w.p)})</span></span></label>`).join('') || '<p class="muted">No words match that search.</p>'}</div>
+      ${historyBlock}
       <fieldset class="prac-opts"><legend>Question type</legend><div class="row">${modeBtns}</div></fieldset>
       <label for="qcount">Number of questions</label>
       <div class="row"><input type="number" id="qcount" min="${Math.max(1, n) || 1}" step="1" value="${qVal}" ${n ? '' : 'disabled'} aria-describedby="qhint"><button type="button" id="go" ${n ? '' : 'disabled'}>${n ? `Start practice (${n} word${n === 1 ? '' : 's'})` : 'Choose words to start'}</button></div>
@@ -552,9 +569,20 @@ function practiceView() {
       if (want > 500) want = 500;
       mode = L.normalizePracticeMode((document.querySelector('input[name=pm]:checked') || {}).value);
       countPref = want;
+      history = L.rememberPracticeSet(history, words.map(L.key), mode);
       persist();
       startPractice(words, 'practice', { mode, count: want });
     };
+    app.querySelectorAll('.prac-set').forEach(btn => btn.onclick = () => {
+      const set = history[+btn.dataset.i];
+      if (!set) return;
+      selected.clear();
+      set.keys.forEach(k => { if (BYKEY[k] && !L.isNew(prog, BYKEY[k])) selected.add(k); });
+      const nNow = selCount();
+      if (nNow && (!countPref || countPref < nNow)) countPref = nNow;
+      persist();
+      render();
+    });
     app.querySelectorAll('.pick-w input').forEach(inp => inp.onchange = () => {
       if (inp.checked) selected.add(inp.value); else selected.delete(inp.value);
       persist();
@@ -1014,14 +1042,14 @@ function extraQuiz(words, s) {
 
 function backup() {
   stopTrack();
-  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, Extra Words practice stats, your name, study buddy, goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
+  app.innerHTML = `<section class="card"><h2>Backup / restore</h2><p class="muted">Progress lives in this browser only. Backups include word progress, unlocks, best scores, in-progress quizzes, Daily Review, grammar scores, Extra Words practice stats, your practice-word sets, your name, study buddy, goals and study time, and your profile photo when it is a reasonable size. Download one to keep it safe or move it to another device.</p>
    <div class="row"><button id="ex">Download backup</button><label class="btn" style="background:var(--sage);color:var(--ink)">Restore from file<input type="file" id="im" accept=".json" hidden></label><button class="ghost" id="h">Back</button></div><p id="msg"></p></section>`;
   $('#h').onclick = home;
-  $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile, extra); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));
+  $('#ex').onclick = () => { const raw = L.exportData(prog, gate, gram, profile, extra, loadPracticePrefs()); const skipped = !!(profile.photo && !(JSON.parse(raw).profile && JSON.parse(raw).profile.photo));
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
     a.download = `sat-vocab-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
     $('#msg').textContent = skipped ? 'Backup downloaded. Your photo was skipped because it is large; it is still saved in this browser.' : ''; };
-  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePassUnlocks(gate, PATH); L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); L.migrateGrammarUnlocks(gram); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } if (r.extra) { extra = L.normalizeExtra(r.extra); saveExtra(); } $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests, Extra Words stats and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
+  $('#im').onchange = async e => { try { const r = L.importData(await e.target.files[0].text()); prog = r.progress; save(); if (r.gate) { gate = r.gate; L.migratePassUnlocks(gate, PATH); L.migratePairUnlocks(PATH, gate); saveGate(); } if (r.grammar) { gram = Object.assign({ passed: {}, resume: {} }, r.grammar); L.migrateGrammarUnlocks(gram); saveGram(); } if (r.profile) { profile = r.profile; saveProfile(); } if (r.extra) { extra = L.normalizeExtra(r.extra); saveExtra(); } if (r.practice) savePracticePrefs(r.practice); $('#msg').textContent = r.gate ? 'Restored words, unlocks, scores, paused tests, Extra Words stats, practice-word sets and profile.' : 'Restored word progress (older backup; your unlocks were kept).'; }
     catch (err) { $('#msg').textContent = 'Could not restore: ' + err.message; } };
 }
 function boot() { profile.survey ? home() : surveyView(false); }

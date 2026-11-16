@@ -862,10 +862,76 @@ function buildExtraQuestion(word, qtype, pool, rnd = Math.random) {
   return { w: word, type: 'word2def', options: choices(word, pool, 4, rnd) };
 }
 
-function exportData(prog, gate, grammar, profile, extra) {
+
+// Recent practice-word sets from "Choose your practice words" (newest first, capped).
+const PRACTICE_SET_MAX = 10;
+function practiceSetId(keys) {
+  return [...new Set((keys || []).map(k => String(k)))].filter(Boolean).sort().join('\0');
+}
+function normalizePracticeHistory(raw, allowedKeys) {
+  if (!Array.isArray(raw)) return [];
+  const allow = allowedKeys ? (allowedKeys instanceof Set ? allowedKeys : new Set(allowedKeys)) : null;
+  const seen = new Set(), out = [];
+  for (const item of raw) {
+    if (!item || !Array.isArray(item.keys)) continue;
+    const uniq = [];
+    const have = new Set();
+    for (const k of item.keys) {
+      const id = String(k || '');
+      if (!id || have.has(id) || (allow && !allow.has(id))) continue;
+      have.add(id); uniq.push(id);
+    }
+    if (!uniq.length) continue;
+    uniq.sort();
+    const sid = practiceSetId(uniq);
+    if (seen.has(sid)) continue;
+    seen.add(sid);
+    const modes = [];
+    const listed = Array.isArray(item.modes) ? item.modes : (item.mode != null ? [item.mode] : []);
+    for (const m of listed) {
+      const nm = normalizePracticeMode(m);
+      if (!modes.includes(nm)) modes.push(nm);
+    }
+    if (!modes.length) modes.push('mc');
+    const at = Number(item.at);
+    out.push({ keys: uniq, modes, at: Number.isFinite(at) && at > 0 ? at : 0 });
+    if (out.length >= PRACTICE_SET_MAX) break;
+  }
+  return out;
+}
+function rememberPracticeSet(history, keys, mode, now = Date.now()) {
+  const uniq = [];
+  const have = new Set();
+  for (const k of keys || []) {
+    const id = String(k || '');
+    if (!id || have.has(id)) continue;
+    have.add(id); uniq.push(id);
+  }
+  if (!uniq.length) return normalizePracticeHistory(history);
+  const sid = practiceSetId(uniq);
+  const prev = (history || []).find(s => s && practiceSetId(s.keys) === sid);
+  const modes = prev && Array.isArray(prev.modes) ? prev.modes.slice() : [];
+  const nm = normalizePracticeMode(mode);
+  if (!modes.includes(nm)) modes.push(nm);
+  const rest = (history || []).filter(s => !(s && practiceSetId(s.keys) === sid));
+  return normalizePracticeHistory([{ keys: uniq, modes, at: now }, ...rest]);
+}
+
+function exportData(prog, gate, grammar, profile, extra, practice) {
   const out = { app: 'sat-vocab-practice', v: 2, progress: prog, gate: gate || newGate(), grammar: grammar || {} };
   if (profile) out.profile = sanitizeProfile(profile, true);
   if (extra) out.extra = normalizeExtra(extra);
+  if (practice != null) {
+    const hist = normalizePracticeHistory(practice.history || practice.sets || practice);
+    const keys = Array.isArray(practice.keys) ? practice.keys.map(k => String(k)).filter(Boolean) : [];
+    const count = Number(practice.count);
+    out.practice = {
+      keys,
+      mode: normalizePracticeMode(practice.mode),
+      count: Number.isFinite(count) && count >= 1 ? Math.min(500, Math.round(count)) : null,
+      history: hist
+    };
+  }
   return JSON.stringify(out);
 }
 function importData(text) {
@@ -897,7 +963,18 @@ function importData(text) {
     if (typeof o.extra !== 'object') throw new Error('Bad extra-words data');
     extra = normalizeExtra(o.extra);
   }
-  return { progress: o.progress, gate, grammar, profile, extra };
+  let practice = null;
+  if (o.practice != null) {
+    if (typeof o.practice !== 'object') throw new Error('Bad practice data');
+    const count = Number(o.practice.count);
+    practice = {
+      keys: Array.isArray(o.practice.keys) ? o.practice.keys.map(k => String(k)).filter(Boolean) : [],
+      mode: normalizePracticeMode(o.practice.mode),
+      count: Number.isFinite(count) && count >= 1 ? Math.min(500, Math.round(count)) : null,
+      history: normalizePracticeHistory(o.practice.history)
+    };
+  }
+  return { progress: o.progress, gate, grammar, profile, extra, practice };
 }
-const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, migratePassUnlocks, migrateGrammarUnlocks, newGate, isUnlocked, recordAttempt, PASS, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk, EXTRA_MIN, EXTRA_MAX, EXTRA_DEFAULT, EXTRA_KNOWN_STREAK, extraSize, newExtra, normalizeExtra, extraWeight, pickExtraWords, extraQuestionTypes, newExtraSession, validExtraResume, answerExtraSession, recordExtra, extraKnown, extraStats, extraFillForms, extraClozeOf, buildExtraCloze, buildExtraQuestion };
+const api = { DAY, INTERVALS, UNIT_SIZE, makeUnits, grade, isNew, dueWords, weakWords, checkTyped, typedForms, choices, shuffle, exportData, importData, newProfile, normalizeSurvey, sanitizeProfile, addActiveTime, todayMs, formatDuration, addCalendarDays, formatDate, projectFinish, WORDS_DAY_OPTS, MINUTES_DAY_OPTS, PHOTO_BACKUP_MAX, NAME_MAX, DEFAULT_BUDDY, BUDDIES, normalizeBuddy, normalizeName, key, quizTypes, makePath, unitWords, migratePairUnlocks, migratePassUnlocks, migrateGrammarUnlocks, newGate, isUnlocked, recordAttempt, PASS, newSession, newPracticeSession, answerPracticeSession, validPracticeResume, normalizePracticeMode, PRACTICE_MODES, answerSession, buildQuestion, validResume, rehydrateQuestion, rehydrateSession, clearResume, laDay, isReviewDay, REVIEW_EPOCH, ensureDaily, dailyBlocks, recordDaily, DAILY_PASS, recordGrammar, allWeak, withWeak, resumeSnapshot, explainWrong, playDing, DING_PARTIALS, confusable, markExample, escHtml, halfCount, pickHalf, pickCloze, buildClozeQuestion, matchFill, inferForm, inflectForm, RECALL_SIZE, RECALL_UNIT, recallUnlocked, recentLearned, pickRecall, buildRecallQuestion, checkTypedDef, defTokens, RETIRED_GRAMMAR, migrateGrammar, makeGrammarPath, recordGrammarAttempt, ensureDailyGrammar, grammarDailyBlocks, grammarStepOpen, buildGrammarExam, pickDailyGrammar, validGramResume, explainGrammar, advanceClickOk, EXTRA_MIN, EXTRA_MAX, EXTRA_DEFAULT, EXTRA_KNOWN_STREAK, extraSize, newExtra, normalizeExtra, extraWeight, pickExtraWords, extraQuestionTypes, newExtraSession, validExtraResume, answerExtraSession, recordExtra, extraKnown, extraStats, extraFillForms, extraClozeOf, buildExtraCloze, buildExtraQuestion, PRACTICE_SET_MAX, practiceSetId, normalizePracticeHistory, rememberPracticeSet };
 if (typeof module !== 'undefined') module.exports = api; else window.Logic = api;
