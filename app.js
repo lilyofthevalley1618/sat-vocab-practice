@@ -412,6 +412,19 @@ function profileView() {
     ? 'You have learned all 384 words.'
     : `At ${s.wordsPerDay} words a day, you would finish all 384 words on <b>${esc(L.formatDate(fin.date))}</b> (${fin.daysLeft} day${fin.daysLeft === 1 ? '' : 's'}).`;
   const photo = profile.photo ? `<img class="profile-photo" alt="Your profile photo" src="${profile.photo}">` : `<div class="profile-photo profile-photo-empty">${buddySvg('idle', 56)}</div>`;
+  const curBuddy = L.normalizeBuddy(profile.buddy);
+  const photoOn = !!profile.photo;
+  const buddyCells = L.BUDDIES.map(b => {
+    const on = !photoOn && b.id === curBuddy;
+    return `<button type="button" class="buddy-pick${on ? ' selected' : ''}" data-id="${b.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(b.name)}">
+      <img src="${b.file}?v=${VERSION}" alt="" width="96" height="96">
+      <span>${esc(b.name)}</span>
+    </button>`;
+  }).join('');
+  const uploadCell = `<button type="button" class="buddy-pick${photoOn ? ' selected' : ''}" id="upPic" aria-pressed="${photoOn ? 'true' : 'false'}" aria-label="${photoOn ? 'Your photo. Click to upload a different one.' : 'Upload your own photo'}">
+      ${photoOn ? `<img class="buddy-photo-preview" src="${profile.photo}" alt="">` : '<span class="buddy-upload-ph" aria-hidden="true">+</span>'}
+      <span>${photoOn ? 'Your photo' : 'Upload a photo'}</span>
+    </button><input type="file" id="ph" accept="image/*" hidden>`;
   const title = profile.name ? `<h2>${esc(profile.name)}</h2><p class="muted">Profile</p>` : `<h2>Profile</h2>`;
   const namePrompt = profile.name ? '' : `<div class="name-prompt"><label for="nmadd">Want to add your name? It will show here next to your picture. You can also add or change it later when you update your goals.</label>
     <div class="row"><input type="text" id="nmadd" maxlength="${L.NAME_MAX}" placeholder="Your name" autocomplete="name"><button class="alt" id="savename">Save name</button></div>
@@ -425,49 +438,22 @@ function profileView() {
     <p><b>Pace:</b> ${s.wordsPerDay} words per day</p>
     <p><b>Words learned so far:</b> ${learned} of 384</p>
     <p>${finishLine}</p>
+    <p style="margin:1.1rem 0 .35rem"><b>Profile picture</b></p>
+    <p class="muted">This is also your study buddy on the home screen and during practice. Tap one to use it right away.</p>
+    <div class="buddy-grid">${buddyCells}${uploadCell}</div>
+    <p class="muted" id="pmsg"></p>
     <div class="row" style="margin-top:1rem">
       <button class="alt" id="goals">Update goals</button>
-      <button class="ghost" id="pic">Change profile picture</button>
-      <label class="btn" style="background:var(--sage);color:var(--ink)">Upload photo<input type="file" id="ph" accept="image/*" hidden></label>
-      ${profile.photo ? '<button class="ghost" id="rm">Remove photo</button>' : ''}
     </div>
-    <p class="muted" id="pmsg"></p>
   </section>`;
   wireTabs();
   $('#goals').onclick = () => surveyView(true);
-  $('#pic').onclick = buddyPickerView;
   if ($('#savename')) $('#savename').onclick = () => {
     const name = L.normalizeName($('#nmadd').value);
     if (!name) { $('#nmsg').textContent = 'Please enter your name.'; $('#nmadd').focus(); return; }
     profile.name = name; saveProfile(); profileView();
   };
-  $('#ph').onchange = async e => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { profile.photo = await resizePhoto(f); saveProfile(); profileView(); }
-    catch (err) { $('#pmsg').textContent = err.message || 'Could not use that image.'; }
-  };
-  if ($('#rm')) $('#rm').onclick = () => { profile.photo = null; saveProfile(); profileView(); };
-}
-function buddyPickerView() {
-  stopTrack(); onHome = false;
-  if (!profile.survey) return surveyView(false);
-  const cur = L.normalizeBuddy(profile.buddy);
-  const cells = L.BUDDIES.map(b => {
-    const on = b.id === cur;
-    return `<button type="button" class="buddy-pick${on ? ' selected' : ''}" data-id="${b.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(b.name)}">
-      <img src="${b.file}?v=${VERSION}" alt="" width="96" height="96">
-      <span>${esc(b.name)}</span>
-    </button>`;
-  }).join('');
-  app.innerHTML = tabs('profile') + `<section class="card">
-    <h2>Change profile picture</h2>
-    <p class="muted">Choose a study buddy. It becomes your profile picture and appears on the home screen and during practice. You can still upload your own photo from Profile.</p>
-    <div class="buddy-grid">${cells}</div>
-    <div class="row" style="margin-top:1rem"><button class="ghost" id="h">Back</button></div>
-  </section>`;
-  wireTabs();
-  $('#h').onclick = profileView;
-  app.querySelectorAll('.buddy-pick').forEach(btn => {
+  app.querySelectorAll('.buddy-pick[data-id]').forEach(btn => {
     btn.onclick = () => {
       profile.buddy = L.normalizeBuddy(btn.getAttribute('data-id'));
       profile.photo = null;
@@ -475,6 +461,12 @@ function buddyPickerView() {
       profileView();
     };
   });
+  $('#upPic').onclick = () => $('#ph').click();
+  $('#ph').onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try { profile.photo = await resizePhoto(f); saveProfile(); profileView(); }
+    catch (err) { $('#pmsg').textContent = err.message || 'Could not use that image.'; }
+  };
 }
 
 function startPractice(words, id = 'practice', opts = {}) {
